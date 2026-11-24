@@ -1,0 +1,2378 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RockMass Pro - 슈미트해머(N형) 및 지질망치 암반판정·보고서 시스템</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Noto Sans KR -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- JSZip for generating genuine .docx (OOXML) files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans KR', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        @media print {
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                font-size: 10pt;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+            .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl {
+                box-shadow: none !important;
+            }
+            table {
+                width: 100% !important;
+                border-collapse: collapse !important;
+            }
+            th, td {
+                border: 1px solid #64748b !important;
+                padding: 5px 6px !important;
+            }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-slate-900 text-white shadow-md no-print sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+            <div class="flex items-center space-x-3">
+                <div class="bg-amber-500 p-2 rounded-lg text-slate-900 shrink-0">
+                    <i data-lucide="mountain" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2">
+                        RockMass Pro
+                        <span class="hidden md:inline text-[11px] font-normal bg-slate-800 text-amber-400 px-2 py-0.5 rounded border border-slate-700">ISRM / ASTM D5873</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">슈미트해머(N형) 반발경도·지질망치 타격시험 통합 암판정 및 보고서 시스템</p>
+                </div>
+            </div>
+
+            <!-- 프로젝트 저장(.btsrock) / 불러오기 / 샘플 / 보고서 버튼 -->
+            <div class="flex items-center space-x-1.5 sm:space-x-2">
+                <input type="file" id="btsrock-file-input" accept=".btsrock,.json" class="hidden" onchange="loadProjectFile(event)">
+                <button onclick="document.getElementById('btsrock-file-input').click()" title="프로젝트 파일(.btsrock) 열기" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-2 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+                    <i data-lucide="folder-open" class="w-4 h-4 text-sky-400"></i>
+                    <span class="hidden lg:inline">.btsrock 열기</span>
+                </button>
+                <button onclick="saveProjectFile()" title="현재 작업을 .btsrock 파일로 저장" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-2 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+                    <i data-lucide="save" class="w-4 h-4 text-emerald-400"></i>
+                    <span class="hidden lg:inline">.btsrock 저장</span>
+                </button>
+                <button onclick="loadSampleData()" title="예제 데이터 불러오기" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-2 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+                    <i data-lucide="database" class="w-4 h-4 text-amber-400"></i>
+                    <span class="hidden md:inline">샘플</span>
+                </button>
+                <button onclick="switchTab('report')" class="text-xs bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                    <span>보고서 출력</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 알림 토스트 -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 no-print"></div>
+
+    <!-- 메인 컨테이너 -->
+    <div class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5">
+        
+        <!-- 과업 정보 및 다중 구조물 관리 바 -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-5 no-print">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <div class="md:col-span-4">
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">과업명 (Project Name)</label>
+                    <input type="text" id="project-name" value="○○지구 도로개설공사 옹벽·터널 갱구부 암판정" onchange="updateProjectMeta()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">조사일자 / 조사자</label>
+                    <input type="text" id="project-meta" value="2026.11.24 / 지반조사팀" onchange="updateProjectMeta()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+                <div class="md:col-span-4">
+                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">대상 구조물 선택 (다중 구조물 관리)</label>
+                    <div class="flex gap-1.5">
+                        <select id="structure-select" onchange="selectStructure(this.value)" class="flex-1 px-3 py-2 bg-amber-50/60 border border-amber-300 text-slate-900 font-semibold rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                        </select>
+                        <button onclick="openStructureModal()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition whitespace-nowrap">
+                            <i data-lucide="layers" class="w-4 h-4 text-amber-400"></i>
+                            <span>구조물 일괄추가</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="md:col-span-2 flex justify-end">
+                    <div class="text-right w-full bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                        <div class="text-[11px] text-slate-500">전체 등록 현황</div>
+                        <div class="text-sm font-bold text-slate-800"><span id="total-struct-count">0</span>개 구조물 / <span id="total-station-count">0</span>측점</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 네비게이션 탭 -->
+        <div class="flex overflow-x-auto border-b border-slate-200 mb-5 no-print gap-1">
+            <button onclick="switchTab('schmidt')" id="tab-btn-schmidt" class="tab-btn px-4 py-3 text-sm font-semibold border-b-2 border-amber-500 text-amber-600 flex items-center gap-2 whitespace-nowrap">
+                <i data-lucide="activity" class="w-4 h-4"></i>
+                1. 슈미트해머(N형) 암반시험
+            </button>
+            <button onclick="switchTab('hammer')" id="tab-btn-hammer" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 whitespace-nowrap">
+                <i data-lucide="hammer" class="w-4 h-4"></i>
+                2. 지질망치 타격시험 & 종합 풍화도
+            </button>
+            <button onclick="switchTab('criteria')" id="tab-btn-criteria" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 whitespace-nowrap">
+                <i data-lucide="sliders" class="w-4 h-4"></i>
+                3. 판정 기준표·추정식·보정표 설정
+            </button>
+            <button onclick="switchTab('report')" id="tab-btn-report" class="tab-btn px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center gap-2 whitespace-nowrap">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                4. 통합 보고서 (PDF / DOCX)
+            </button>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 1: 슈미트해머(N형) 암반시험 -->
+        <!-- ===================================================================== -->
+        <div id="tab-schmidt" class="tab-content space-y-5">
+            
+            <!-- 현재 구조물 헤더 & 도구 바 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-0.5 bg-slate-800 text-white text-xs font-bold rounded">현재 구조물</span>
+                            <h2 class="text-lg font-bold text-slate-800" id="current-struct-title">-</h2>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1" id="current-struct-desc">-</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="openExcelPasteModal()" class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+                            <i data-lucide="clipboard-paste" class="w-4 h-4 text-emerald-600"></i>
+                            엑셀 야장 Ctrl+V 붙여넣기
+                        </button>
+                        <button onclick="openReverseCalcModal()" class="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+                            <i data-lucide="calculator" class="w-4 h-4 text-indigo-600"></i>
+                            추정강도 역산 자동입력
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 실시간 이상치 허용범위 및 대표 qu 선정 바 -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4 bg-amber-50/50 p-3 rounded-xl border border-amber-200/80 items-center">
+                    <div class="md:col-span-4 flex items-center gap-2">
+                        <label class="text-xs font-bold text-slate-700 whitespace-nowrap">이상치 제외 기준:</label>
+                        <div class="flex items-center gap-1 text-xs">
+                            <span>평균 ±</span>
+                            <input type="number" id="quick-outlier-pct" min="5" max="50" step="1" value="20" onchange="updateQuickSettings()" class="w-16 px-2 py-1 bg-white border border-amber-400 rounded font-bold text-center text-amber-800">
+                            <span>% 초과 제외</span>
+                        </div>
+                    </div>
+                    <div class="md:col-span-5 flex items-center gap-2">
+                        <label class="text-xs font-bold text-slate-700 whitespace-nowrap">대표 q<sub>u</sub> 선정:</label>
+                        <select id="quick-qu-method" onchange="updateQuickSettings()" class="flex-1 px-2.5 py-1 bg-white border border-amber-400 rounded text-xs font-semibold text-slate-800">
+                            <option value="deere_miller">1. Deere-Miller 도표식</option>
+                            <option value="linear">2. 선형 경험식</option>
+                            <option value="average">3. 두 식의 평균값</option>
+                            <option value="conservative">4. 두 식 중 작은 값 (보수적)</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-3 text-right">
+                        <button onclick="switchTab('criteria')" class="text-xs text-slate-600 hover:text-amber-700 underline font-medium">
+                            계수·보정표·경계값 상세편집 →
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 신규 측점 개별 입력 폼 -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <i data-lucide="plus-circle" class="w-4 h-4 text-amber-500"></i>
+                        측점 반발경도(N형) 개별 입력 (측점당 6~20회 권장)
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">측점 / 위치</label>
+                            <input type="text" id="in-station-name" placeholder="예: No.1 (STA.0+020)" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">암종 (Rock Type)</label>
+                            <input type="text" id="in-rock-type" placeholder="예: 화강편마암" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">단위중량 γ (kN/m³)</label>
+                            <input type="number" step="0.1" id="in-unit-weight" value="26.5" class="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">타격 방향 (각도)</label>
+                            <select id="in-angle" class="w-full px-2.5 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                                <option value="0" selected>수평 (0°)</option>
+                                <option value="-90">연직 하향 (−90°)</option>
+                                <option value="-45">하향 경사 (−45°)</option>
+                                <option value="45">상향 경사 (+45°)</option>
+                                <option value="90">연직 상향 (+90°)</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-4">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">반발경도 측정값 (6~20개, 쉼표/공백 구분)</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="in-readings" placeholder="예: 42, 44, 25, 45, 43, 41, 46, 44, 40, 43" class="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-amber-500 outline-none">
+                                <button onclick="addStation()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-sm transition whitespace-nowrap shadow-sm">
+                                    추가
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 측점별 산출 결과 테이블 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50/50">
+                    <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                        <i data-lucide="table" class="w-4 h-4 text-amber-500"></i>
+                        측점별 반발경도 이상치 제외(<span class="text-red-600">적색</span>)·보정 R′ 및 일축압축강도(q<sub>u</sub>)·암판정 결과
+                    </h3>
+                    <span class="text-xs text-slate-500">평균 ±<span id="tbl-pct-label">20</span>% 범위 벗어난 측정치는 적색 취소선으로 자동 제외됩니다.</span>
+                </div>
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 text-xs">
+                            <tr>
+                                <th class="px-3 py-3">측점 / 위치</th>
+                                <th class="px-3 py-3">암종<br><span class="font-normal text-[11px]">(γ, kN/m³)</span></th>
+                                <th class="px-3 py-3 min-w-[200px]">측정 반발경도 내역<br><span class="font-normal text-[11px] text-red-600">(적색: 이상치 제외)</span></th>
+                                <th class="px-3 py-3 text-center">유효 R ± σ<br><span class="font-normal text-[11px]">(채택/전체)</span></th>
+                                <th class="px-3 py-3 text-center">타격방향<br><span class="font-normal text-[11px]">(보정 ΔR)</span></th>
+                                <th class="px-3 py-3 text-center bg-amber-50/60">보정 R′</th>
+                                <th class="px-3 py-3 text-right">도표식 q<sub>u</sub><br><span class="font-normal text-[11px]">(MPa)</span></th>
+                                <th class="px-3 py-3 text-right">경험식 q<sub>u</sub><br><span class="font-normal text-[11px]">(MPa)</span></th>
+                                <th class="px-3 py-3 text-right bg-blue-50/60 font-bold text-blue-900">대표 q<sub>u</sub><br><span class="font-normal text-[11px]">(MPa)</span></th>
+                                <th class="px-3 py-3 text-center">암판정 등급</th>
+                                <th class="px-3 py-3 text-center">강도 풍화도</th>
+                                <th class="px-3 py-3 text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="schmidt-table-body" class="divide-y divide-slate-200">
+                            <!-- JS 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 실시간 분포 차트 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <h4 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4 text-amber-500"></i>
+                        측점별 추정 일축압축강도(q<sub>u</sub>) 비교 (도표식 vs 선형 경험식)
+                    </h4>
+                    <div class="h-60 relative">
+                        <canvas id="ucs-comparison-chart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <h4 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-4 h-4 text-amber-500"></i>
+                        현재 구조물 암반 5등급 분포 현황
+                    </h4>
+                    <div class="h-60 relative flex items-center justify-center">
+                        <canvas id="grade-dist-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 2: 지질망치 타격시험 (ISRM 1981) & 종합 풍화도 판정 -->
+        <!-- ===================================================================== -->
+        <div id="tab-hammer" class="tab-content hidden space-y-5">
+            
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">지질망치 타격시험 (ISRM 1981, R0~R6) 및 종합 풍화도 판정</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">암반시험 탭과 측점·위치가 자동 연계됩니다. 종합 풍화도 결정 규칙 선택 및 미실시 측점 일괄 자동선택 기능을 지원합니다.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button onclick="autoAssignHammerGrades(false)" title="지질망치가 미입력된 측점에만 슈미트 풍화도 기준 지질망치 등급을 자동 배정합니다." class="px-3 py-2 bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+                            <i data-lucide="wand-2" class="w-4 h-4 text-sky-600"></i>
+                            미실시 측점 자동배정
+                        </button>
+                        <button onclick="autoAssignHammerGrades(true)" title="현재 구조물의 전 측점에 슈미트 풍화도 기준 지질망치 등급을 일괄 배정합니다." class="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+                            <i data-lucide="sparkles" class="w-4 h-4 text-amber-600"></i>
+                            강도판정 기준 전 측점 일괄배정
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 종합 풍화도 결정 규칙 3종 선택 바 -->
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-700">종합 풍화도(F/SW/MW/CW/RS) 결정 규칙:</span>
+                        <select id="cfg-weathering-rule" onchange="updateWeatheringRule()" class="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800 focus:ring-2 focus:ring-amber-500">
+                            <option value="more_weathered">1. 더 풍화된 쪽 우선 (보수적·안전측 기준)</option>
+                            <option value="hammer_first">2. 지질망치 타격시험 결과 우선 (미실시 시 슈미트 적용)</option>
+                            <option value="schmidt_first">3. 슈미트해머 강도 풍화도 우선</option>
+                        </select>
+                    </div>
+                    <div class="text-xs text-slate-500">
+                        * 개별 측점의 최종 풍화도 열에서 <strong>수동 지정</strong>을 선택할 수도 있습니다.
+                    </div>
+                </div>
+
+                <!-- R0 ~ R6 현장 강도등급 안내 카드 (기준표 설정과 연동) -->
+                <div id="hammer-ref-cards" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mb-5">
+                    <!-- JS 동적 렌더링 -->
+                </div>
+
+                <!-- 지질망치 연계 테이블 -->
+                <div class="overflow-x-auto border border-slate-200 rounded-xl custom-scrollbar">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-xs">
+                            <tr>
+                                <th class="px-3 py-3">연계 측점 / 위치</th>
+                                <th class="px-3 py-3">암종</th>
+                                <th class="px-3 py-3 text-right">슈미트 대표 q<sub>u</sub></th>
+                                <th class="px-3 py-3 text-center">슈미트 암판정 /<br>강도 풍화도</th>
+                                <th class="px-3 py-3 min-w-[230px]">지질망치 타격 반응 선택 (ISRM 1981)</th>
+                                <th class="px-3 py-3 text-center">참고 강도범위<br>/ 대응 풍화도</th>
+                                <th class="px-3 py-3 min-w-[160px]">현장 육안·타격 소견</th>
+                                <th class="px-3 py-3 text-center bg-amber-50/70 font-bold text-slate-900 min-w-[150px]">최종 종합 풍화도<br><span class="font-normal text-[11px]">(자동 / 수동지정)</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="hammer-table-body" class="divide-y divide-slate-200">
+                            <!-- JS 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 3: 판정 기준표·추정식·보정표 설정 -->
+        <!-- ===================================================================== -->
+        <div id="tab-criteria" class="tab-content hidden space-y-6">
+            
+            <!-- 상단: 추정식 계수 & 타격방향 표준 보정표 ΔR -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- 좌측: Deere-Miller 및 선형 경험식 계수 편집 -->
+                <div class="lg:col-span-6 bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-3">
+                        <i data-lucide="function-square" class="w-4 h-4 text-amber-500"></i>
+                        일축압축강도(q<sub>u</sub>) 추정식 계수 편집
+                    </h3>
+
+                    <div class="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2.5">
+                        <div class="text-xs font-bold text-slate-800 flex justify-between">
+                            <span>① Deere-Miller (1966) 도표식: log₁₀(q<sub>u</sub>) = a · γ · R′ + b</span>
+                            <span class="text-[11px] font-normal text-slate-500">γ: 단위중량(kN/m³)</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] text-slate-600 mb-1">계수 a (표준: 0.00088)</label>
+                                <input type="number" step="0.00001" id="cfg-dm-a" value="0.00088" onchange="saveFormulaAndAngleSettings()" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-sm font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-600 mb-1">상수 b (표준: 1.01)</label>
+                                <input type="number" step="0.01" id="cfg-dm-b" value="1.01" onchange="saveFormulaAndAngleSettings()" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-sm font-mono">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2.5">
+                        <div class="text-xs font-bold text-slate-800">② 선형 경험식: q<sub>u</sub> = a · R′ + b (MPa)</div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] text-slate-600 mb-1">기울기 a (예: 2.2)</label>
+                                <input type="number" step="0.1" id="cfg-linear-a" value="2.2" onchange="saveFormulaAndAngleSettings()" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-sm font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-600 mb-1">절편 b (예: -25.0)</label>
+                                <input type="number" step="0.5" id="cfg-linear-b" value="-25.0" onchange="saveFormulaAndAngleSettings()" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-sm font-mono">
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 pt-1">
+                            <button onclick="applyLinearPreset(2.2, -25.0)" class="text-[11px] px-2 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100">일반암반 (2.2R′ - 25)</button>
+                            <button onclick="applyLinearPreset(2.0, -20.0)" class="text-[11px] px-2 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100">화강암류 (2.0R′ - 20)</button>
+                            <button onclick="applyLinearPreset(1.8, -18.0)" class="text-[11px] px-2 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100">퇴적/변성암 (1.8R′ - 18)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 우측: 타격방향 표준 보정표 ΔR 편집 -->
+                <div class="lg:col-span-6 bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="compass" class="w-4 h-4 text-amber-500"></i>
+                            타격방향 보정값 ΔR 표준표 (R′ = R + ΔR)
+                        </h3>
+                        <button onclick="resetAngleTable()" class="text-xs text-slate-500 hover:text-slate-800 underline">표준값 초기화</button>
+                    </div>
+                    <p class="text-xs text-slate-500">
+                        N형 슈미트해머 제조사(Proceq) 및 ISRM 표준 보정표에 따른 반발경도 구간별 ΔR 보정값입니다. 필요 시 현장 보정값을 직접 수정할 수 있습니다.
+                    </p>
+                    <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                        <table class="w-full text-xs text-center">
+                            <thead class="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                                <tr>
+                                    <th class="px-2 py-2">측정 반발경도 R 구간</th>
+                                    <th class="px-2 py-2">연직하향 (−90°)</th>
+                                    <th class="px-2 py-2">하향경사 (−45°)</th>
+                                    <th class="px-2 py-2 bg-slate-100">수평 (0°)</th>
+                                    <th class="px-2 py-2">상향경사 (+45°)</th>
+                                    <th class="px-2 py-2">연직상향 (+90°)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="angle-table-body" class="divide-y divide-slate-200 font-mono">
+                                <!-- JS 렌더링 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 중단: 5등급 암판정 기준표 편집 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 mb-4">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="layers" class="w-4 h-4 text-amber-500"></i>
+                        5등급 암판정 및 강도 풍화도 기준표 편집 (풍화암 &lt;25 · 연암 25~50 · 보통암 50~100 · 경암 100~200 · 극경암 ≥200 MPa)
+                    </h3>
+                    <button onclick="resetRockCriteria()" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded">기본 기준(25/50/100/200) 복원</button>
+                </div>
+
+                <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-xs">
+                            <tr>
+                                <th class="px-3 py-2.5">암반 등급</th>
+                                <th class="px-3 py-2.5">하한 q<sub>u</sub> (MPa 이상)</th>
+                                <th class="px-3 py-2.5">상한 q<sub>u</sub> (MPa 미만)</th>
+                                <th class="px-3 py-2.5">대응 강도 풍화도</th>
+                                <th class="px-3 py-2.5">풍화도 강도구간 및 등급 설명 (보고서 부록 반영)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="criteria-table-body" class="divide-y divide-slate-200">
+                            <!-- JS 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 하단: 지질망치 등급(R0~R6)별 대응 풍화도·강도범위·설명 기준표 편집 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 mb-4">
+                    <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="hammer" class="w-4 h-4 text-amber-500"></i>
+                        지질망치 현장 강도등급(ISRM 1981, R0~R6) 기준표 편집
+                    </h3>
+                    <button onclick="resetHammerCriteria()" class="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded">ISRM 표준 복원</button>
+                </div>
+
+                <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200 text-xs">
+                            <tr>
+                                <th class="px-3 py-2.5 w-20">등급</th>
+                                <th class="px-3 py-2.5 w-36">현장 강도 구분</th>
+                                <th class="px-3 py-2.5 w-40">참고 일축강도 범위</th>
+                                <th class="px-3 py-2.5 w-36">대응 풍화도</th>
+                                <th class="px-3 py-2.5">지질망치 타격 반응 및 육안 특징 설명</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hammer-criteria-table-body" class="divide-y divide-slate-200">
+                            <!-- JS 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================================================================== -->
+        <!-- TAB 4: 통합 분석 보고서 (PDF / DOCX 출력) -->
+        <!-- ===================================================================== -->
+        <div id="tab-report" class="tab-content hidden space-y-6">
+            
+            <!-- 보고서 출력 컨트롤 바 -->
+            <div class="bg-slate-900 text-white rounded-xl p-4 shadow-md flex flex-wrap items-center justify-between gap-4 no-print">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-amber-500/20 text-amber-400 rounded-lg">
+                        <i data-lucide="file-check-2" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm">다중 구조물 통합 암판정 및 풍화도 평가 보고서</h3>
+                        <p class="text-xs text-slate-400">구조물 단위로 절이 나뉘어 구성되며, PDF 인쇄 및 한글(HWP)·MS워드에서 바로 편집 가능한 <strong>.docx</strong> 파일을 지원합니다.</p>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="exportToDocx()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                        <i data-lucide="file-down" class="w-4 h-4"></i>
+                        DOCX (한글·워드 편집용) 저장
+                    </button>
+                    <button onclick="window.print()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                        <i data-lucide="printer" class="w-4 h-4"></i>
+                        PDF 인쇄 / 저장
+                    </button>
+                </div>
+            </div>
+
+            <!-- 보고서 미리보기 본문 (직접 편집 가능 영역 포함) -->
+            <div id="report-document" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 sm:p-10 max-w-5xl mx-auto space-y-8">
+                
+                <!-- 표지 헤더 -->
+                <div class="border-b-2 border-slate-900 pb-5">
+                    <div class="flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div>
+                            <span class="text-xs font-bold text-amber-600 uppercase tracking-widest">GEOTECHNICAL ROCK MASS EVALUATION REPORT</span>
+                            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1" id="rep-title">-</h1>
+                            <p class="text-sm text-slate-600 mt-1">슈미트해머(N형) 반발경도 시험 및 지질망치 타격시험(ISRM 1981)에 의한 현장 암반판정·풍화도 평가 보고서</p>
+                        </div>
+                        <div class="text-right text-xs text-slate-600 border border-slate-300 rounded p-2.5 bg-slate-50 shrink-0">
+                            <div><strong>조사일시/팀:</strong> <span id="rep-meta">-</span></div>
+                            <div class="mt-1"><strong>적용규격:</strong> ISRM (2009, 1981) / ASTM D5873</div>
+                            <div class="mt-1"><strong>해석조건:</strong> <span id="rep-method-summary">-</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 1. 시험 개요 및 방법 (편집 가능) -->
+                <section class="space-y-2">
+                    <h2 class="text-base font-bold text-slate-900 border-l-4 border-amber-500 pl-3">1. 시험 개요 및 판정 방법 (클릭하여 본문 직접 편집 가능)</h2>
+                    <div contenteditable="true" id="rep-overview-text" class="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 leading-relaxed focus:bg-amber-50/30 focus:border-amber-400 outline-none">
+                        본 과업 구간의 구조물 기초 및 사면·갱구부 암반 노출면에 대하여 슈미트해머(N형) 반발경도 측정 및 지질망치 타격시험(ISRM 1981)을 병행 수행하였다. 각 측점별로 측정된 반발경도에서 전체 평균 대비 ±20%를 초과하는 이상치를 제외한 후 유효 평균(R)과 표준편차(σ)를 산정하였으며, 타격방향 보정값(ΔR)을 적용하여 보정 반발경도(R′)를 도출하였다. 일축압축강도(qu)는 Deere-Miller 도표식과 선형 경험식으로 동시 산정하여 대표 강도를 결정하였으며, 지질망치 타격 반응(R0~R6)과 교차 검증하여 최종 풍화도(F~RS) 및 5등급 암판정을 수행하였다.
+                    </div>
+                </section>
+
+                <!-- 2. 전체 구조물 강도·풍화도 분포 그래프 -->
+                <section class="space-y-3">
+                    <h2 class="text-base font-bold text-slate-900 border-l-4 border-amber-500 pl-3">2. 전체 구조물 일축압축강도(q<sub>u</sub>) 및 암반등급·풍화도 분포 현황</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="border border-slate-200 rounded-lg p-4">
+                            <h3 class="text-xs font-bold text-slate-700 text-center mb-2">[그림 1] 구조물·측점별 대표 일축압축강도 q<sub>u</sub> (MPa) 분포</h3>
+                            <div class="h-56 relative">
+                                <canvas id="rep-ucs-chart"></canvas>
+                            </div>
+                        </div>
+                        <div class="border border-slate-200 rounded-lg p-4">
+                            <h3 class="text-xs font-bold text-slate-700 text-center mb-2">[그림 2] 전체 측점 암반 5등급 및 최종 풍화도 분포</h3>
+                            <div class="h-56 relative">
+                                <canvas id="rep-weathering-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. 구조물 단위 절(Section) 자동 생성 영역 -->
+                <div id="rep-structures-container" class="space-y-8">
+                    <!-- 구조물별로 3.1, 3.2 ... 절이 나뉘어 생성됨 -->
+                </div>
+
+                <!-- 부록: 판정 기준표 -->
+                <section class="space-y-4 page-break pt-4">
+                    <h2 class="text-base font-bold text-slate-900 border-l-4 border-slate-800 pl-3">[부록] 적용 암반판정 및 지질망치 풍화도 분류 기준표</h2>
+                    <div id="rep-appendix-criteria"></div>
+                    <div id="rep-appendix-hammer" class="mt-4"></div>
+                </section>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 모달 1: 구조물 일괄추가 및 관리 모달 -->
+    <!-- ===================================================================== -->
+    <div id="structure-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-2xl w-full overflow-hidden max-h-[90vh] flex flex-col">
+            <div class="px-5 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i data-lucide="layers" class="w-4 h-4 text-amber-400"></i>
+                    구조물 일괄추가 및 다중 구조물 관리
+                </h3>
+                <button onclick="closeStructureModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-5 space-y-5 overflow-y-auto custom-scrollbar">
+                
+                <!-- 1) 패턴 기반 일괄 추가 ("1호 옹벽 ~ 8호 옹벽") -->
+                <div class="bg-amber-50/60 p-4 rounded-xl border border-amber-200 space-y-3">
+                    <div class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                        <i data-lucide="copy-plus" class="w-4 h-4 text-amber-600"></i>
+                        다수 구조물 패턴 일괄 등록 (예: 1호 옹벽 ~ 8호 옹벽)
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                        <div class="sm:col-span-3">
+                            <label class="block text-[11px] font-medium text-slate-600 mb-1">접두어</label>
+                            <input type="text" id="batch-prefix" placeholder="예: 제" value="" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-[11px] font-medium text-slate-600 mb-1">시작 번호</label>
+                            <input type="number" id="batch-start" value="1" min="1" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs text-center">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-[11px] font-medium text-slate-600 mb-1">종료 번호</label>
+                            <input type="number" id="batch-end" value="5" min="1" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs text-center">
+                        </div>
+                        <div class="sm:col-span-5">
+                            <label class="block text-[11px] font-medium text-slate-600 mb-1">접미어 (구조물명)</label>
+                            <input type="text" id="batch-suffix" value="호 옹벽" placeholder="예: 호 옹벽" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                        <div class="sm:col-span-5">
+                            <label class="block text-[11px] font-medium text-slate-600 mb-1">기본 암종</label>
+                            <input type="text" id="batch-rock" value="화강편마암" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs">
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="block text-[11px] font-medium text-slate-600 mb-1">단위중량 (kN/m³)</label>
+                            <input type="number" step="0.1" id="batch-gamma" value="26.5" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs">
+                        </div>
+                        <div class="sm:col-span-4">
+                            <button onclick="batchCreateStructures()" class="w-full py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded text-xs transition shadow-sm">
+                                일괄 등록 실행
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2) 엑셀 붙여넣기로 시험계획 수립 시 다중 구조물·측점 자동 생성 -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2.5">
+                    <div class="text-xs font-bold text-slate-800 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5"><i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i>엑셀 시험계획표 붙여넣기 (기존 데이터 유지 및 병합)</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">
+                        엑셀에서 <strong>[구조물명 | 측점/위치 | 암종 | 단위중량 | 타격각도(0/-45/-90/45/90)]</strong> 열을 복사하여 붙여넣으면 구조물과 계획 측점이 자동 생성됩니다.
+                    </p>
+                    <textarea id="plan-excel-paste" rows="3" placeholder="1호 옹벽&#9;No.1 (STA.0+020)&#9;화강암&#9;26.5&#9;0&#10;1호 옹벽&#9;No.2 (STA.0+040)&#9;화강암&#9;26.5&#9;-45&#10;2호 옹벽&#9;No.1 (STA.0+100)&#9;편마암&#9;26.8&#9;0" class="w-full p-2.5 bg-white border border-slate-300 rounded-lg text-xs font-mono focus:ring-2 focus:ring-amber-500 outline-none"></textarea>
+                    <div class="flex justify-end">
+                        <button onclick="importPlanFromExcel()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-lg text-xs transition">
+                            시험계획 반영 (기존 입력값 유지)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 3) 현재 등록된 구조물 목록 -->
+                <div>
+                    <div class="text-xs font-bold text-slate-700 mb-2">등록된 구조물 목록 (클릭 시 이동)</div>
+                    <div id="modal-structure-list" class="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 모달 2: 엑셀 야장 Ctrl+V 붙여넣기 모달 -->
+    <!-- ===================================================================== -->
+    <div id="excel-paste-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-2xl w-full overflow-hidden">
+            <div class="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i data-lucide="clipboard-paste" class="w-4 h-4 text-emerald-400"></i>
+                    엑셀 야장 반발경도 데이터 Ctrl+V 붙여넣기
+                </h3>
+                <button onclick="closeExcelPasteModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div class="bg-emerald-50/70 p-3 rounded-lg border border-emerald-200 text-xs text-emerald-900 space-y-1">
+                    <div class="font-bold">지원 열 순서 (탭 구분, 엑셀 행 복사 후 그대로 붙여넣기):</div>
+                    <div><code>측점명 | 암종 | 단위중량(γ) | 타격각도(0/-45/-90/45/90) | R1 | R2 | R3 ... R20</code></div>
+                    <div class="text-[11px] text-emerald-700">* 암종·단위중량·각도를 생략하고 <code>측점명 | R1 | R2 ...</code> 형태로만 붙여넣어도 자동 인식됩니다.</div>
+                </div>
+                <textarea id="field-excel-paste" rows="6" placeholder="No.1 (STA.0+010)&#9;화강암&#9;26.5&#9;0&#9;42&#9;44&#9;41&#9;45&#9;43&#9;22&#9;44&#9;42&#9;43&#9;41&#10;No.2 (STA.0+030)&#9;화강암&#9;26.5&#9;-45&#9;35&#9;36&#9;34&#9;38&#9;35&#9;37&#9;34&#9;36" class="w-full p-3 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+                <div class="flex justify-end gap-2">
+                    <button onclick="closeExcelPasteModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">취소</button>
+                    <button onclick="processFieldExcelPaste()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold">현재 구조물에 일괄 추가</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 모달 3: 추정강도 역산 자동입력 모달 -->
+    <!-- ===================================================================== -->
+    <div id="reverse-calc-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-lg w-full overflow-hidden">
+            <div class="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i data-lucide="calculator" class="w-4 h-4 text-indigo-400"></i>
+                    목표 일축압축강도(q<sub>u</sub>) 기준 반발경도 역산 자동입력
+                </h3>
+                <button onclick="closeReverseCalcModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-5 space-y-4">
+                <p class="text-xs text-slate-600">
+                    실내 일축압축강도 시험 결과 또는 설계 기준 강도(q<sub>u</sub>)를 입력하면, 현재 설정된 추정식과 타격방향 보정을 역산하여 목표 강도에 부합하는 10회 반발경도 측정 세트를 자동 생성합니다.
+                </p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">측점명</label>
+                        <input type="text" id="rev-name" placeholder="예: No.5 (역산측점)" class="w-full px-3 py-1.5 border border-slate-300 rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">목표 일축압축강도 q<sub>u</sub> (MPa)</label>
+                        <input type="number" step="1" id="rev-target-qu" value="65" class="w-full px-3 py-1.5 border border-indigo-400 bg-indigo-50/40 rounded text-sm font-bold text-indigo-900">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">암종 / 단위중량 (kN/m³)</label>
+                        <div class="flex gap-1.5">
+                            <input type="text" id="rev-rock" value="화강편마암" class="w-2/3 px-2.5 py-1.5 border border-slate-300 rounded text-xs">
+                            <input type="number" step="0.1" id="rev-gamma" value="26.5" class="w-1/3 px-2 py-1.5 border border-slate-300 rounded text-xs">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-700 mb-1">타격 방향</label>
+                        <select id="rev-angle" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs">
+                            <option value="0">수평 (0°)</option>
+                            <option value="-90">연직 하향 (−90°)</option>
+                            <option value="-45">하향 경사 (−45°)</option>
+                            <option value="45">상향 경사 (+45°)</option>
+                            <option value="90">연직 상향 (+90°)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button onclick="closeReverseCalcModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">취소</button>
+                    <button onclick="executeReverseCalc()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold">역산 반발경도 생성 및 추가</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 모달 4: 측점 상세 편집 및 이상치 판별 확인 모달 -->
+    <!-- ===================================================================== -->
+    <div id="station-detail-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-2xl w-full overflow-hidden">
+            <div class="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i data-lucide="microscope" class="w-4 h-4 text-amber-400"></i>
+                    측점 상세 타격 데이터 수정 및 이상치 제외 확인
+                </h3>
+                <button onclick="closeStationDetailModal()" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="p-5 space-y-4">
+                <input type="hidden" id="edit-st-id">
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">측점 / 위치</label>
+                        <input type="text" id="edit-st-name" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">암종</label>
+                        <input type="text" id="edit-st-rock" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">단위중량 (kN/m³)</label>
+                        <input type="number" step="0.1" id="edit-st-gamma" class="w-full px-2.5 py-1.5 border border-slate-300 rounded text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-600 mb-1">타격방향</label>
+                        <select id="edit-st-angle" class="w-full px-2 py-1.5 border border-slate-300 rounded text-sm">
+                            <option value="0">수평 (0°)</option>
+                            <option value="-90">연직하향 (−90°)</option>
+                            <option value="-45">하향경사 (−45°)</option>
+                            <option value="45">상향경사 (+45°)</option>
+                            <option value="90">연직상향 (+90°)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">원시 반발경도 측정치 (수정 시 실시간 이상치 판별)</label>
+                    <input type="text" id="edit-st-readings" oninput="previewEditedStation()" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono">
+                </div>
+
+                <div class="bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+                    <div class="text-xs font-bold text-slate-700 mb-2">타격치별 채택 / 이상치 제외(<span class="text-red-600">적색</span>) 판별 현황</div>
+                    <div id="edit-st-badges" class="flex flex-wrap gap-1.5"></div>
+                    <div class="mt-3 pt-2 border-t border-slate-200 grid grid-cols-3 gap-2 text-xs">
+                        <div>유효 평균 R ± σ: <strong id="edit-st-valid-avg" class="text-blue-700">-</strong></div>
+                        <div>타격방향 보정 ΔR: <strong id="edit-st-delta">-</strong></div>
+                        <div>보정 반발경도 R′: <strong id="edit-st-corr-avg" class="text-amber-700">-</strong></div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button onclick="closeStationDetailModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">취소</button>
+                    <button onclick="saveStationDetail()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-bold">수정사항 저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // 1. 전역 상태(State) 및 공학 기준 기본값
+        // =========================================================================
+        const DEFAULT_ANGLE_TABLE = [
+            { minR: 10, maxR: 20, "-90": -5.4, "-45": -3.5, "0": 0, "45": 3.1, "90": 5.2 },
+            { minR: 20, maxR: 30, "-90": -4.8, "-45": -3.1, "0": 0, "45": 2.7, "90": 4.6 },
+            { minR: 30, maxR: 40, "-90": -4.3, "-45": -2.7, "0": 0, "45": 2.4, "90": 4.0 },
+            { minR: 40, maxR: 50, "-90": -3.8, "-45": -2.4, "0": 0, "45": 2.0, "90": 3.5 },
+            { minR: 50, maxR: 60, "-90": -3.3, "-45": -2.0, "0": 0, "45": 1.7, "90": 3.0 },
+            { minR: 60, maxR: 100,"-90": -2.8, "-45": -1.7, "0": 0, "45": 1.4, "90": 2.5 }
+        ];
+
+        const DEFAULT_ROCK_CRITERIA = [
+            { id: "extremely_hard", name: "극경암", minUcs: 200, maxUcs: 9999, weathering: "F", desc: "일축강도 200 MPa 이상, 신선한 암질(F), 발파굴착 필수 및 최소 지보" },
+            { id: "hard", name: "경암", minUcs: 100, maxUcs: 200, weathering: "SW", desc: "일축강도 100~200 MPa, 약간풍화(SW), 발파굴착 및 록볼트·숏크리트 지보" },
+            { id: "moderate", name: "보통암", minUcs: 50, maxUcs: 100, weathering: "MW", desc: "일축강도 50~100 MPa, 보통풍화(MW), 발파 및 대형브레이커 병행 굴착" },
+            { id: "soft", name: "연암", minUcs: 25, maxUcs: 50, weathering: "MW", desc: "일축강도 25~50 MPa, 보통~심한풍화 전이대, 리핑 및 브레이커 굴착" },
+            { id: "weathered", name: "풍화암", minUcs: 0, maxUcs: 25, weathering: "CW", desc: "일축강도 25 MPa 미만, 심한풍화(CW), 리핑 및 기계굴착, 사면보강 필요" }
+        ];
+
+        const DEFAULT_HAMMER_CRITERIA = {
+            "R0": { title: "극연암/토사", range: "0.25 ~ 1 MPa", weathering: "RS", desc: "엄지손톱으로 자국이 남음" },
+            "R1": { title: "대단히 연약", range: "1 ~ 5 MPa", weathering: "CW", desc: "지질망치 뾰족한 끝으로 타격 시 부서지며 칼로 깎임" },
+            "R2": { title: "연약암", range: "5 ~ 25 MPa", weathering: "CW", desc: "지질망치 뾰족한 끝으로 강타 시 얕게 패임" },
+            "R3": { title: "보통암", range: "25 ~ 50 MPa", weathering: "MW", desc: "손으로 깎이지 않으며 지질망치 1회 강타로 파쇄됨" },
+            "R4": { title: "경암", range: "50 ~ 100 MPa", weathering: "MW", desc: "지질망치로 여러 번 타격해야 시편이 파쇄됨" },
+            "R5": { title: "대단히 경암", range: "100 ~ 250 MPa", weathering: "SW", desc: "지질망치로 수차례 강타 시 모서리 조각만 박리됨" },
+            "R6": { title: "극경암", range: "250 MPa 이상", weathering: "F", desc: "지질망치 타격 시 불꽃이 튀며 파쇄되지 않고 맑은 금속음 발생" }
+        };
+
+        const WEATHERING_INFO = {
+            "F":  { name: "F (신선)", rank: 1, badge: "bg-blue-100 text-blue-800 border-blue-300" },
+            "SW": { name: "SW (약간풍화)", rank: 2, badge: "bg-emerald-100 text-emerald-800 border-emerald-300" },
+            "MW": { name: "MW (보통풍화)", rank: 3, badge: "bg-amber-100 text-amber-800 border-amber-300" },
+            "CW": { name: "CW (심한풍화)", rank: 4, badge: "bg-orange-100 text-orange-800 border-orange-300" },
+            "RS": { name: "RS (잔류토)", rank: 5, badge: "bg-red-100 text-red-800 border-red-300" }
+        };
+
+        let appState = {
+            projectName: "○○지구 도로개설공사 옹벽·터널 갱구부 암판정",
+            projectMeta: "2026.11.24 / 지반조사팀",
+            settings: {
+                outlierPct: 20,           // 평균 ±20% (조정 가능)
+                ucsPrimary: "deere_miller", // deere_miller, linear, average, conservative
+                dmA: 0.00088,
+                dmB: 1.01,
+                linearA: 2.2,
+                linearB: -25.0,
+                weatheringRule: "more_weathered" // more_weathered, hammer_first, schmidt_first
+            },
+            angleTable: JSON.parse(JSON.stringify(DEFAULT_ANGLE_TABLE)),
+            criteria: JSON.parse(JSON.stringify(DEFAULT_ROCK_CRITERIA)),
+            hammerCriteria: JSON.parse(JSON.stringify(DEFAULT_HAMMER_CRITERIA)),
+            currentStructureId: "struct-1",
+            structures: []
+        };
+
+        let charts = { ucsComp: null, gradeDist: null, repUcs: null, repWeathering: null };
+
+        // =========================================================================
+        // 2. 공학 계산 엔진 (이상치 ±%, 표준 보정표 ΔR, UCS, 풍화도)
+        // =========================================================================
+
+        /**
+         * 표준 타격방향 보정표에서 측정 R 구간에 해당하는 ΔR 조회 (선형 보간 또는 구간 매칭)
+         */
+        function getAngleDeltaR(R, angleDeg) {
+            const angleKey = String(angleDeg);
+            if (angleKey === "0" || R <= 0) return 0;
+
+            for (const row of appState.angleTable) {
+                if (R >= row.minR && R < row.maxR) {
+                    return parseFloat(row[angleKey]) || 0;
+                }
+            }
+            const lastRow = appState.angleTable[appState.angleTable.length - 1];
+            if (R >= lastRow.maxR) return parseFloat(lastRow[angleKey]) || 0;
+            const firstRow = appState.angleTable[0];
+            return parseFloat(firstRow[angleKey]) || 0;
+        }
+
+        /**
+         * 평균 ±outlierPct(%) 벗어난 이상치 자동 제외 및 유효 측정치 평균 R, 표준편차 σ 산정
+         */
+        function processReadings(rawReadings, outlierPct) {
+            const validNums = rawReadings.filter(n => !isNaN(n) && n > 0 && n <= 100);
+            if (validNums.length === 0) {
+                return { rawAvg: 0, validAvg: 0, stdDev: 0, items: [] };
+            }
+
+            const rawAvg = validNums.reduce((a, b) => a + b, 0) / validNums.length;
+            const tolRatio = (parseFloat(outlierPct) || 20) / 100.0;
+            const lowerBound = rawAvg * (1 - tolRatio);
+            const upperBound = rawAvg * (1 + tolRatio);
+
+            const items = validNums.map((val, idx) => ({
+                index: idx,
+                value: val,
+                accepted: (val >= lowerBound && val <= upperBound)
+            }));
+
+            // 모든 값이 제외되는 극단적 상황 방지
+            if (!items.some(i => i.accepted)) {
+                items[0].accepted = true;
+            }
+
+            const acceptedVals = items.filter(i => i.accepted).map(i => i.value);
+            const validAvg = acceptedVals.reduce((a, b) => a + b, 0) / acceptedVals.length;
+
+            // 표본 표준편차 σ 산정
+            let stdDev = 0;
+            if (acceptedVals.length > 1) {
+                const variance = acceptedVals.reduce((acc, v) => acc + Math.pow(v - validAvg, 2), 0) / (acceptedVals.length - 1);
+                stdDev = Math.sqrt(variance);
+            }
+
+            return { rawAvg, validAvg, stdDev, items };
+        }
+
+        /**
+         * 측점 전체 해석 수행
+         */
+        function analyzeStation(station) {
+            const { outlierPct, ucsPrimary, dmA, dmB, linearA, linearB, weatheringRule } = appState.settings;
+            const proc = processReadings(station.readings, outlierPct);
+            
+            const deltaR = getAngleDeltaR(proc.validAvg, station.angle);
+            const rPrime = Math.max(0, proc.validAvg + deltaR);
+
+            // 1) Deere-Miller 도표식: log10(qu) = a * gamma * R' + b
+            const gamma = parseFloat(station.unitWeight) || 26.5;
+            const ucsDeere = rPrime > 0 ? Math.pow(10, (dmA * gamma * rPrime + dmB)) : 0;
+
+            // 2) 선형 경험식: qu = a * R' + b
+            const ucsLinear = rPrime > 0 ? Math.max(1.0, (linearA * rPrime + linearB)) : 0;
+
+            // 3) 대표 qu 선정 4종
+            let primaryUcs = ucsDeere;
+            if (ucsPrimary === "linear") primaryUcs = ucsLinear;
+            else if (ucsPrimary === "average") primaryUcs = (ucsDeere + ucsLinear) / 2;
+            else if (ucsPrimary === "conservative") primaryUcs = Math.min(ucsDeere, ucsLinear);
+
+            // 4) 5등급 암판정 매칭
+            let matchedGrade = appState.criteria[appState.criteria.length - 1];
+            for (const crit of appState.criteria) {
+                if (primaryUcs >= crit.minUcs) {
+                    matchedGrade = crit;
+                    break;
+                }
+            }
+
+            // 5) 풍화도 산정 (슈미트 강도 풍화도 vs 지질망치 타격 풍화도 vs 수동지정)
+            const schmidtWeathering = matchedGrade.weathering;
+            const hGrade = station.hammerGrade || "";
+            const hammerInfo = appState.hammerCriteria[hGrade];
+            const hammerWeathering = hammerInfo ? hammerInfo.weathering : null;
+
+            let autoWeathering = schmidtWeathering;
+            if (hammerWeathering) {
+                const sRank = WEATHERING_INFO[schmidtWeathering].rank;
+                const hRank = WEATHERING_INFO[hammerWeathering].rank;
+                if (weatheringRule === "more_weathered") {
+                    autoWeathering = (sRank >= hRank) ? schmidtWeathering : hammerWeathering;
+                } else if (weatheringRule === "hammer_first") {
+                    autoWeathering = hammerWeathering;
+                } else if (weatheringRule === "schmidt_first") {
+                    autoWeathering = schmidtWeathering;
+                }
+            } else {
+                // 지질망치 미실시 시 슈미트 풍화도 적용
+                autoWeathering = schmidtWeathering;
+            }
+
+            const finalWeathering = (station.manualWeathering && station.manualWeathering !== "AUTO") 
+                ? station.manualWeathering 
+                : autoWeathering;
+
+            return {
+                rawAvg: proc.rawAvg,
+                validAvg: proc.validAvg,
+                stdDev: proc.stdDev,
+                items: proc.items,
+                deltaR,
+                rPrime,
+                ucsDeere,
+                ucsLinear,
+                primaryUcs,
+                rockGrade: matchedGrade.name,
+                schmidtWeathering,
+                hammerWeathering,
+                finalWeathering,
+                isManualWeathering: (station.manualWeathering && station.manualWeathering !== "AUTO")
+            };
+        }
+
+        // =========================================================================
+        // 3. 샘플 데이터 & 프로젝트 파일(.btsrock) 저장/불러오기
+        // =========================================================================
+        function loadSampleData() {
+            appState.structures = [
+                {
+                    id: "struct-1",
+                    name: "1호 옹벽 (STA. 0+120 ~ 0+180)",
+                    rockType: "흑운모화강암",
+                    defaultGamma: 26.5,
+                    stations: [
+                        { id: "st-101", name: "No.1 (STA.0+130)", rockType: "흑운모화강암", unitWeight: 26.2, angle: "0", readings: [34, 35, 22, 36, 33, 35, 37, 34, 32, 35], hammerGrade: "R3", manualWeathering: "AUTO", note: "절리면 따라 일부 산화변색, 1회 강타 시 파쇄" },
+                        { id: "st-102", name: "No.2 (STA.0+150)", rockType: "흑운모화강암", unitWeight: 26.5, angle: "-45", readings: [46, 48, 45, 49, 47, 31, 48, 46, 47, 48], hammerGrade: "R4", manualWeathering: "AUTO", note: "약간풍화 상태, 수회 강타 시 시편 파쇄" },
+                        { id: "st-103", name: "No.3 (STA.0+170)", rockType: "풍화화강암", unitWeight: 24.5, angle: "0", readings: [22, 24, 21, 23, 25, 22, 34, 23, 21, 24], hammerGrade: "R2", manualWeathering: "AUTO", note: "장석류 풍화 진행, 망치 끝 타격 시 패임" }
+                    ]
+                },
+                {
+                    id: "struct-2",
+                    name: "2호 옹벽 (STA. 0+240 ~ 0+310)",
+                    rockType: "호상편마암",
+                    defaultGamma: 27.0,
+                    stations: [
+                        { id: "st-201", name: "No.1 (STA.0+250)", rockType: "호상편마암", unitWeight: 27.1, angle: "0", readings: [54, 56, 53, 55, 57, 54, 55, 56, 54, 55], hammerGrade: "R5", manualWeathering: "AUTO", note: "엽리 치밀, 신선한 암질 유지" },
+                        { id: "st-202", name: "No.2 (STA.0+290)", rockType: "호상편마암", unitWeight: 26.8, angle: "45", readings: [41, 43, 40, 42, 44, 41, 42, 43, 40, 42], hammerGrade: "", manualWeathering: "AUTO", note: "지질망치 미실시 구간 (자동배정 테스트용)" }
+                    ]
+                }
+            ];
+            appState.currentStructureId = "struct-1";
+            refreshAll();
+            showToast("다중 구조물 샘플 데이터가 로드되었습니다.", "success");
+        }
+
+        function saveProjectFile() {
+            updateProjectMeta();
+            const jsonStr = JSON.stringify(appState, null, 2);
+            const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            const safeName = appState.projectName.replace(/[^a-zA-Z0-9가-힣_-]/g, "_");
+            link.href = url;
+            link.download = `${safeName}.btsrock`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast("프로젝트 파일(.btsrock)이 저장되었습니다.", "success");
+        }
+
+        function loadProjectFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const loaded = JSON.parse(e.target.result);
+                    if (!loaded.structures || !Array.isArray(loaded.structures)) {
+                        throw new Error("유효하지 않은 .btsrock 파일 형식입니다.");
+                    }
+                    appState = Object.assign({}, appState, loaded);
+                    document.getElementById("project-name").value = appState.projectName || "";
+                    document.getElementById("project-meta").value = appState.projectMeta || "";
+                    refreshAll();
+                    showToast(`'${file.name}' 프로젝트를 성공적으로 불러왔습니다.`, "success");
+                } catch (err) {
+                    showToast("파일 불러오기 실패: " + err.message, "error");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = "";
+        }
+
+        // =========================================================================
+        // 4. UI 렌더링 및 상호작용
+        // =========================================================================
+        function showToast(msg, type = "info") {
+            const container = document.getElementById("toast-container");
+            const el = document.createElement("div");
+            const colors = type === "success" ? "bg-slate-900 text-white border-amber-500" : "bg-red-600 text-white border-red-800";
+            el.className = `${colors} border-l-4 px-4 py-3 rounded-lg shadow-lg text-xs font-medium flex items-center gap-2 transition-all duration-300`;
+            el.innerHTML = `<span>${msg}</span>`;
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = "0";
+                setTimeout(() => el.remove(), 300);
+            }, 3000);
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+            document.getElementById(`tab-${tabName}`).classList.remove("hidden");
+
+            document.querySelectorAll(".tab-btn").forEach(btn => {
+                btn.classList.remove("border-amber-500", "text-amber-600", "font-semibold");
+                btn.classList.add("border-transparent", "text-slate-500", "font-medium");
+            });
+            const activeBtn = document.getElementById(`tab-btn-${tabName}`);
+            activeBtn.classList.remove("border-transparent", "text-slate-500", "font-medium");
+            activeBtn.classList.add("border-amber-500", "text-amber-600", "font-semibold");
+
+            if (tabName === "report") renderReport();
+            else if (tabName === "schmidt") renderCharts();
+        }
+
+        function updateProjectMeta() {
+            appState.projectName = document.getElementById("project-name").value;
+            appState.projectMeta = document.getElementById("project-meta").value;
+        }
+
+        function getCurrentStructure() {
+            return appState.structures.find(s => s.id === appState.currentStructureId) || appState.structures[0];
+        }
+
+        function selectStructure(id) {
+            appState.currentStructureId = id;
+            refreshAll();
+        }
+
+        function updateQuickSettings() {
+            appState.settings.outlierPct = parseFloat(document.getElementById("quick-outlier-pct").value) || 20;
+            appState.settings.ucsPrimary = document.getElementById("quick-qu-method").value;
+            refreshAll();
+        }
+
+        function refreshAll() {
+            // 상단 구조물 셀렉트박스 갱신
+            const select = document.getElementById("structure-select");
+            select.innerHTML = "";
+            let totalStations = 0;
+
+            appState.structures.forEach(s => {
+                totalStations += s.stations.length;
+                const opt = document.createElement("option");
+                opt.value = s.id;
+                opt.textContent = `${s.name} (${s.stations.length}측점)`;
+                if (s.id === appState.currentStructureId) opt.selected = true;
+                select.appendChild(opt);
+            });
+
+            document.getElementById("total-struct-count").textContent = appState.structures.length;
+            document.getElementById("total-station-count").textContent = totalStations;
+
+            const currStruct = getCurrentStructure();
+            if (currStruct) {
+                document.getElementById("current-struct-title").textContent = currStruct.name;
+                document.getElementById("current-struct-desc").textContent = `대표암종: ${currStruct.rockType} | 기본 단위중량(γ): ${currStruct.defaultGamma} kN/m³`;
+                document.getElementById("in-rock-type").value = currStruct.rockType;
+                document.getElementById("in-unit-weight").value = currStruct.defaultGamma;
+            }
+
+            // 설정 입력값 동기화
+            document.getElementById("quick-outlier-pct").value = appState.settings.outlierPct;
+            document.getElementById("quick-qu-method").value = appState.settings.ucsPrimary;
+            document.getElementById("tbl-pct-label").textContent = appState.settings.outlierPct;
+            document.getElementById("cfg-weathering-rule").value = appState.settings.weatheringRule;
+            document.getElementById("cfg-dm-a").value = appState.settings.dmA;
+            document.getElementById("cfg-dm-b").value = appState.settings.dmB;
+            document.getElementById("cfg-linear-a").value = appState.settings.linearA;
+            document.getElementById("cfg-linear-b").value = appState.settings.linearB;
+
+            renderSchmidtTable();
+            renderHammerTab();
+            renderSettingsTables();
+            renderCharts();
+        }
+
+        function getGradeBadgeColor(gradeName) {
+            if (gradeName === "극경암") return "bg-blue-100 text-blue-800 border-blue-300";
+            if (gradeName === "경암") return "bg-emerald-100 text-emerald-800 border-emerald-300";
+            if (gradeName === "보통암") return "bg-amber-100 text-amber-800 border-amber-300";
+            if (gradeName === "연암") return "bg-orange-100 text-orange-800 border-orange-300";
+            return "bg-red-100 text-red-800 border-red-300";
+        }
+
+        function renderSchmidtTable() {
+            const tbody = document.getElementById("schmidt-table-body");
+            const currStruct = getCurrentStructure();
+            tbody.innerHTML = "";
+
+            if (!currStruct || currStruct.stations.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="12" class="px-4 py-8 text-center text-slate-400">등록된 측점이 없습니다. 상단 입력창이나 [엑셀 야장 붙여넣기]로 측정값을 추가하세요.</td></tr>`;
+                return;
+            }
+
+            const angleLabels = { "0": "수평 (0°)", "-90": "연직하향 (−90°)", "-45": "하향 (−45°)", "45": "상향 (+45°)", "90": "연직상향 (+90°)" };
+
+            currStruct.stations.forEach(st => {
+                const res = analyzeStation(st);
+                const acceptedCnt = res.items.filter(i => i.accepted).length;
+                const wInfo = WEATHERING_INFO[res.schmidtWeathering];
+
+                // 개별 측정치 렌더링 (이상치는 적색 취소선 표시)
+                const readingsHtml = res.items.map(item => 
+                    item.accepted 
+                        ? `<span class="text-slate-800 font-medium">${item.value}</span>` 
+                        : `<span class="text-red-600 font-bold line-through bg-red-50 px-1 rounded" title="평균 ±${appState.settings.outlierPct}% 초과 이상치 제외">${item.value}</span>`
+                ).join(", ");
+
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-50/80 transition";
+                tr.innerHTML = `
+                    <td class="px-3 py-3 font-semibold text-slate-800">${st.name}</td>
+                    <td class="px-3 py-3 text-slate-600 text-xs">${st.rockType}<br><span class="text-[11px] text-slate-400">(${st.unitWeight})</span></td>
+                    <td class="px-3 py-3 font-mono text-xs leading-relaxed">${readingsHtml || "<span class='text-slate-400'>미측정</span>"}</td>
+                    <td class="px-3 py-3 text-center font-mono text-xs">
+                        <span class="font-bold text-slate-800">${res.validAvg.toFixed(1)}</span> ± ${res.stdDev.toFixed(1)}<br>
+                        <span class="text-[11px] text-slate-400">(${acceptedCnt}/${res.items.length}개)</span>
+                    </td>
+                    <td class="px-3 py-3 text-center text-xs text-slate-600">
+                        ${angleLabels[st.angle] || st.angle + "°"}<br>
+                        <span class="font-mono text-[11px] text-slate-500">(${res.deltaR >= 0 ? "+" : ""}${res.deltaR.toFixed(1)})</span>
+                    </td>
+                    <td class="px-3 py-3 text-center font-mono font-bold text-amber-700 bg-amber-50/40">${res.rPrime.toFixed(1)}</td>
+                    <td class="px-3 py-3 text-right font-mono text-slate-700">${res.ucsDeere.toFixed(1)}</td>
+                    <td class="px-3 py-3 text-right font-mono text-slate-700">${res.ucsLinear.toFixed(1)}</td>
+                    <td class="px-3 py-3 text-right font-mono font-bold text-blue-900 bg-blue-50/40">${res.primaryUcs.toFixed(1)}</td>
+                    <td class="px-3 py-3 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-bold border ${getGradeBadgeColor(res.rockGrade)}">${res.rockGrade}</span>
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                        <span class="px-2 py-0.5 rounded text-xs font-semibold border ${wInfo.badge}">${res.schmidtWeathering}</span>
+                    </td>
+                    <td class="px-3 py-3 text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <button onclick="openStationDetailModal('${st.id}')" title="상세/수정" class="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteStation('${st.id}')" title="삭제" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            lucide.createIcons();
+        }
+
+        function addStation() {
+            const currStruct = getCurrentStructure();
+            if (!currStruct) return;
+
+            const name = document.getElementById("in-station-name").value.trim() || `No.${currStruct.stations.length + 1}`;
+            const rockType = document.getElementById("in-rock-type").value.trim() || currStruct.rockType;
+            const unitWeight = parseFloat(document.getElementById("in-unit-weight").value) || 26.5;
+            const angle = document.getElementById("in-angle").value;
+            const rawStr = document.getElementById("in-readings").value;
+
+            const readings = rawStr.split(/[\s,]+/).map(v => parseFloat(v)).filter(v => !isNaN(v));
+            if (readings.length < 1) {
+                showToast("반발경도 측정값을 입력해주세요. (권장 6~20회)", "error");
+                return;
+            }
+
+            currStruct.stations.push({
+                id: "st-" + Date.now(),
+                name,
+                rockType,
+                unitWeight,
+                angle,
+                readings,
+                hammerGrade: "",
+                manualWeathering: "AUTO",
+                note: ""
+            });
+
+            document.getElementById("in-station-name").value = "";
+            document.getElementById("in-readings").value = "";
+            refreshAll();
+            showToast(`${name} 측점이 추가되었습니다.`, "success");
+        }
+
+        function deleteStation(stId) {
+            const currStruct = getCurrentStructure();
+            currStruct.stations = currStruct.stations.filter(s => s.id !== stId);
+            refreshAll();
+            showToast("측점이 삭제되었습니다.", "success");
+        }
+
+        // =========================================================================
+        // 5. 지질망치 타격시험 탭 렌더링 및 일괄배정
+        // =========================================================================
+        function renderHammerTab() {
+            // 상단 R0~R6 요약 카드
+            const refContainer = document.getElementById("hammer-ref-cards");
+            refContainer.innerHTML = "";
+            Object.entries(appState.hammerCriteria).forEach(([code, info]) => {
+                const wInfo = WEATHERING_INFO[info.weathering] || WEATHERING_INFO["MW"];
+                const card = document.createElement("div");
+                card.className = "p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs flex flex-col justify-between";
+                card.innerHTML = `
+                    <div>
+                        <div class="font-bold text-slate-800 flex items-center justify-between">
+                            <span>${code} (${info.title})</span>
+                        </div>
+                        <div class="text-[11px] font-mono text-indigo-700 mt-0.5">${info.range}</div>
+                        <div class="text-[11px] text-slate-500 mt-1 leading-snug">${info.desc}</div>
+                    </div>
+                    <div class="mt-2">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold border ${wInfo.badge}">풍화도: ${info.weathering}</span>
+                    </div>
+                `;
+                refContainer.appendChild(card);
+            });
+
+            // 측점 연계 테이블
+            const tbody = document.getElementById("hammer-table-body");
+            const currStruct = getCurrentStructure();
+            tbody.innerHTML = "";
+
+            if (!currStruct || currStruct.stations.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-8 text-center text-slate-400">연계된 측점이 없습니다. 1번 탭에서 측점을 먼저 등록하세요.</td></tr>`;
+                return;
+            }
+
+            currStruct.stations.forEach(st => {
+                const res = analyzeStation(st);
+                const sWInfo = WEATHERING_INFO[res.schmidtWeathering];
+                const hCriteria = appState.hammerCriteria[st.hammerGrade];
+                const hWInfo = hCriteria ? WEATHERING_INFO[hCriteria.weathering] : null;
+                const fWInfo = WEATHERING_INFO[res.finalWeathering];
+
+                let hammerOpts = `<option value="">-- 미실시 (슈미트 기준 적용) --</option>`;
+                Object.entries(appState.hammerCriteria).forEach(([code, info]) => {
+                    hammerOpts += `<option value="${code}" ${st.hammerGrade === code ? "selected" : ""}>${code} [${info.title}] - ${info.desc}</option>`;
+                });
+
+                const manualVal = st.manualWeathering || "AUTO";
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-50/80";
+                tr.innerHTML = `
+                    <td class="px-3 py-3 font-semibold text-slate-800">${st.name}</td>
+                    <td class="px-3 py-3 text-slate-600 text-xs">${st.rockType}</td>
+                    <td class="px-3 py-3 text-right font-mono font-semibold text-slate-700">${res.primaryUcs.toFixed(1)} MPa</td>
+                    <td class="px-3 py-3 text-center">
+                        <span class="text-xs font-bold text-slate-700">${res.rockGrade}</span>
+                        <span class="ml-1 px-1.5 py-0.5 rounded text-[11px] font-semibold border ${sWInfo.badge}">${res.schmidtWeathering}</span>
+                    </td>
+                    <td class="px-3 py-3">
+                        <select onchange="updateStationHammer('${st.id}', this.value)" class="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-amber-500">
+                            ${hammerOpts}
+                        </select>
+                    </td>
+                    <td class="px-3 py-3 text-center text-xs">
+                        ${hCriteria 
+                            ? `<div class="font-mono text-[11px] text-slate-600">${hCriteria.range}</div><span class="px-2 py-0.5 rounded text-[11px] font-bold border ${hWInfo.badge}">${hCriteria.weathering}</span>` 
+                            : `<span class="text-slate-400 text-[11px]">미실시</span>`}
+                    </td>
+                    <td class="px-3 py-3">
+                        <input type="text" value="${st.note || ""}" onchange="updateStationNote('${st.id}', this.value)" placeholder="현장 육안·타격 소견" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded text-xs focus:bg-white focus:border-amber-500 outline-none">
+                    </td>
+                    <td class="px-3 py-3 text-center bg-amber-50/50">
+                        <select onchange="updateStationManualWeathering('${st.id}', this.value)" class="px-2 py-1 rounded text-xs font-bold border ${fWInfo.badge} cursor-pointer">
+                            <option value="AUTO" ${manualVal === "AUTO" ? "selected" : ""}>자동: ${fWInfo.name}</option>
+                            <option value="F" ${manualVal === "F" ? "selected" : ""}>수동: F (신선)</option>
+                            <option value="SW" ${manualVal === "SW" ? "selected" : ""}>수동: SW (약간풍화)</option>
+                            <option value="MW" ${manualVal === "MW" ? "selected" : ""}>수동: MW (보통풍화)</option>
+                            <option value="CW" ${manualVal === "CW" ? "selected" : ""}>수동: CW (심한풍화)</option>
+                            <option value="RS" ${manualVal === "RS" ? "selected" : ""}>수동: RS (잔류토)</option>
+                        </select>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateStationHammer(stId, gradeCode) {
+            const st = getCurrentStructure().stations.find(s => s.id === stId);
+            if (st) { st.hammerGrade = gradeCode; refreshAll(); }
+        }
+
+        function updateStationNote(stId, val) {
+            const st = getCurrentStructure().stations.find(s => s.id === stId);
+            if (st) st.note = val;
+        }
+
+        function updateStationManualWeathering(stId, val) {
+            const st = getCurrentStructure().stations.find(s => s.id === stId);
+            if (st) { st.manualWeathering = val; refreshAll(); }
+        }
+
+        function updateWeatheringRule() {
+            appState.settings.weatheringRule = document.getElementById("cfg-weathering-rule").value;
+            refreshAll();
+        }
+
+        /**
+         * 슈미트해머 강도 풍화도에 대응하는 지질망치 등급(R0~R6)을 일괄 배정
+         */
+        function autoAssignHammerGrades(overwriteAll) {
+            const currStruct = getCurrentStructure();
+            if (!currStruct || currStruct.stations.length === 0) return;
+
+            let updatedCount = 0;
+            currStruct.stations.forEach(st => {
+                if (!overwriteAll && st.hammerGrade) return;
+                const res = analyzeStation(st);
+                const ucs = res.primaryUcs;
+                // 대표 UCS 및 강도 풍화도에 대응하는 ISRM 등급 매칭
+                let mappedR = "R3";
+                if (ucs >= 250) mappedR = "R6";
+                else if (ucs >= 100) mappedR = "R5";
+                else if (ucs >= 50) mappedR = "R4";
+                else if (ucs >= 25) mappedR = "R3";
+                else if (ucs >= 5) mappedR = "R2";
+                else if (ucs >= 1) mappedR = "R1";
+                else mappedR = "R0";
+
+                st.hammerGrade = mappedR;
+                updatedCount++;
+            });
+
+            refreshAll();
+            showToast(`${updatedCount}개 측점에 강도판정 기준 지질망치 등급이 배정되었습니다.`, "success");
+        }
+
+        // =========================================================================
+        // 6. 기준표·추정식·보정표 편집 렌더링 및 저장
+        // =========================================================================
+        function renderSettingsTables() {
+            // 1) 타격방향 보정표
+            const angleBody = document.getElementById("angle-table-body");
+            angleBody.innerHTML = "";
+            appState.angleTable.forEach((row, idx) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td class="px-2 py-1.5 font-semibold text-slate-700">${row.minR} ~ ${row.maxR === 100 ? "이상" : row.maxR}</td>
+                    <td class="px-1 py-1"><input type="number" step="0.1" value="${row["-90"]}" onchange="updateAngleCell(${idx}, '-90', this.value)" class="w-14 px-1 py-0.5 border border-slate-300 rounded text-center"></td>
+                    <td class="px-1 py-1"><input type="number" step="0.1" value="${row["-45"]}" onchange="updateAngleCell(${idx}, '-45', this.value)" class="w-14 px-1 py-0.5 border border-slate-300 rounded text-center"></td>
+                    <td class="px-1 py-1 bg-slate-50 text-slate-400">0.0</td>
+                    <td class="px-1 py-1"><input type="number" step="0.1" value="${row["45"]}" onchange="updateAngleCell(${idx}, '45', this.value)" class="w-14 px-1 py-0.5 border border-slate-300 rounded text-center"></td>
+                    <td class="px-1 py-1"><input type="number" step="0.1" value="${row["90"]}" onchange="updateAngleCell(${idx}, '90', this.value)" class="w-14 px-1 py-0.5 border border-slate-300 rounded text-center"></td>
+                `;
+                angleBody.appendChild(tr);
+            });
+
+            // 2) 5등급 암판정 기준표
+            const critBody = document.getElementById("criteria-table-body");
+            critBody.innerHTML = "";
+            appState.criteria.forEach((crit, idx) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td class="px-3 py-2 font-bold">
+                        <span class="px-2 py-0.5 rounded text-xs border ${getGradeBadgeColor(crit.name)}">${crit.name}</span>
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="number" step="1" value="${crit.minUcs}" ${idx === appState.criteria.length - 1 ? "disabled" : ""} onchange="updateRockCritCell(${idx}, 'minUcs', this.value)" class="w-24 px-2 py-1 border border-slate-300 rounded text-xs font-mono text-right disabled:bg-slate-100">
+                    </td>
+                    <td class="px-3 py-2 text-xs text-slate-500 font-mono">
+                        ${idx === 0 ? "제한 없음 (∞)" : appState.criteria[idx - 1].minUcs + " 미만"}
+                    </td>
+                    <td class="px-3 py-2">
+                        <select onchange="updateRockCritCell(${idx}, 'weathering', this.value)" class="px-2 py-1 border border-slate-300 rounded text-xs">
+                            <option value="F" ${crit.weathering === "F" ? "selected" : ""}>F (신선)</option>
+                            <option value="SW" ${crit.weathering === "SW" ? "selected" : ""}>SW (약간풍화)</option>
+                            <option value="MW" ${crit.weathering === "MW" ? "selected" : ""}>MW (보통풍화)</option>
+                            <option value="CW" ${crit.weathering === "CW" ? "selected" : ""}>CW (심한풍화)</option>
+                        </select>
+                    </td>
+                    <td class="px-3 py-2">
+                        <input type="text" value="${crit.desc}" onchange="updateRockCritCell(${idx}, 'desc', this.value)" class="w-full px-2 py-1 border border-slate-300 rounded text-xs">
+                    </td>
+                `;
+                critBody.appendChild(tr);
+            });
+
+            // 3) 지질망치 R0~R6 기준표
+            const hamBody = document.getElementById("hammer-criteria-table-body");
+            hamBody.innerHTML = "";
+            Object.entries(appState.hammerCriteria).forEach(([code, info]) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td class="px-3 py-2 font-mono font-bold text-slate-800">${code}</td>
+                    <td class="px-3 py-2"><input type="text" value="${info.title}" onchange="updateHammerCritCell('${code}', 'title', this.value)" class="w-full px-2 py-1 border border-slate-300 rounded text-xs"></td>
+                    <td class="px-3 py-2"><input type="text" value="${info.range}" onchange="updateHammerCritCell('${code}', 'range', this.value)" class="w-full px-2 py-1 border border-slate-300 rounded text-xs font-mono"></td>
+                    <td class="px-3 py-2">
+                        <select onchange="updateHammerCritCell('${code}', 'weathering', this.value)" class="w-full px-2 py-1 border border-slate-300 rounded text-xs">
+                            <option value="F" ${info.weathering === "F" ? "selected" : ""}>F (신선)</option>
+                            <option value="SW" ${info.weathering === "SW" ? "selected" : ""}>SW (약간풍화)</option>
+                            <option value="MW" ${info.weathering === "MW" ? "selected" : ""}>MW (보통풍화)</option>
+                            <option value="CW" ${info.weathering === "CW" ? "selected" : ""}>CW (심한풍화)</option>
+                            <option value="RS" ${info.weathering === "RS" ? "selected" : ""}>RS (잔류토)</option>
+                        </select>
+                    </td>
+                    <td class="px-3 py-2"><input type="text" value="${info.desc}" onchange="updateHammerCritCell('${code}', 'desc', this.value)" class="w-full px-2 py-1 border border-slate-300 rounded text-xs"></td>
+                `;
+                hamBody.appendChild(tr);
+            });
+        }
+
+        function saveFormulaAndAngleSettings() {
+            appState.settings.dmA = parseFloat(document.getElementById("cfg-dm-a").value) || 0.00088;
+            appState.settings.dmB = parseFloat(document.getElementById("cfg-dm-b").value) || 1.01;
+            appState.settings.linearA = parseFloat(document.getElementById("cfg-linear-a").value) || 2.2;
+            appState.settings.linearB = parseFloat(document.getElementById("cfg-linear-b").value) || -25.0;
+            refreshAll();
+        }
+
+        function applyLinearPreset(a, b) {
+            document.getElementById("cfg-linear-a").value = a;
+            document.getElementById("cfg-linear-b").value = b;
+            saveFormulaAndAngleSettings();
+            showToast(`선형 경험식 (a=${a}, b=${b})이 적용되었습니다.`, "success");
+        }
+
+        function updateAngleCell(idx, col, val) {
+            appState.angleTable[idx][col] = parseFloat(val) || 0;
+            refreshAll();
+        }
+
+        function resetAngleTable() {
+            appState.angleTable = JSON.parse(JSON.stringify(DEFAULT_ANGLE_TABLE));
+            refreshAll();
+            showToast("타격방향 표준 보정표가 초기화되었습니다.", "success");
+        }
+
+        function updateRockCritCell(idx, field, val) {
+            if (field === "minUcs") {
+                appState.criteria[idx].minUcs = parseFloat(val) || 0;
+                for (let i = 1; i < appState.criteria.length; i++) {
+                    appState.criteria[i].maxUcs = appState.criteria[i - 1].minUcs;
+                }
+            } else {
+                appState.criteria[idx][field] = val;
+            }
+            refreshAll();
+        }
+
+        function resetRockCriteria() {
+            appState.criteria = JSON.parse(JSON.stringify(DEFAULT_ROCK_CRITERIA));
+            refreshAll();
+            showToast("암판정 기본 기준표(25/50/100/200 MPa)가 복원되었습니다.", "success");
+        }
+
+        function updateHammerCritCell(code, field, val) {
+            appState.hammerCriteria[code][field] = val;
+            refreshAll();
+        }
+
+        function resetHammerCriteria() {
+            appState.hammerCriteria = JSON.parse(JSON.stringify(DEFAULT_HAMMER_CRITERIA));
+            refreshAll();
+            showToast("지질망치 ISRM 표준 기준표가 복원되었습니다.", "success");
+        }
+
+        // =========================================================================
+        // 7. 구조물 일괄추가, 엑셀 야장 붙여넣기, 추정강도 역산 모달
+        // =========================================================================
+        function openStructureModal() {
+            renderModalStructureList();
+            document.getElementById("structure-modal").classList.remove("hidden");
+        }
+        function closeStructureModal() {
+            document.getElementById("structure-modal").classList.add("hidden");
+        }
+
+        function renderModalStructureList() {
+            const listEl = document.getElementById("modal-structure-list");
+            listEl.innerHTML = "";
+            appState.structures.forEach(s => {
+                const div = document.createElement("div");
+                div.className = "flex items-center justify-between p-2 bg-white border border-slate-200 rounded-lg text-xs";
+                div.innerHTML = `
+                    <div>
+                        <span class="font-bold text-slate-800">${s.name}</span>
+                        <span class="text-slate-500 ml-2">(${s.rockType}, ${s.stations.length}측점)</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="selectStructure('${s.id}'); closeStructureModal();" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded">이동</button>
+                        ${appState.structures.length > 1 ? `<button onclick="deleteStructure('${s.id}')" class="p-1 text-red-500 hover:bg-red-50 rounded"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>` : ""}
+                    </div>
+                `;
+                listEl.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        function batchCreateStructures() {
+            const prefix = document.getElementById("batch-prefix").value;
+            const start = parseInt(document.getElementById("batch-start").value) || 1;
+            const end = parseInt(document.getElementById("batch-end").value) || 1;
+            const suffix = document.getElementById("batch-suffix").value;
+            const rockType = document.getElementById("batch-rock").value.trim() || "화강편마암";
+            const defaultGamma = parseFloat(document.getElementById("batch-gamma").value) || 26.5;
+
+            if (end < start || (end - start) > 50) {
+                showToast("시작~종료 번호 범위를 올바르게 입력하세요 (최대 50개 일괄 생성).", "error");
+                return;
+            }
+
+            let createdCnt = 0;
+            for (let i = start; i <= end; i++) {
+                const name = `${prefix}${i}${suffix}`.trim();
+                // 기존 동일 이름 구조물이 없을 때만 추가 (기존 입력값 유지)
+                if (!appState.structures.some(s => s.name === name)) {
+                    const newId = "struct-" + Date.now() + "-" + i;
+                    appState.structures.push({
+                        id: newId,
+                        name,
+                        rockType,
+                        defaultGamma,
+                        stations: []
+                    });
+                    appState.currentStructureId = newId;
+                    createdCnt++;
+                }
+            }
+
+            refreshAll();
+            renderModalStructureList();
+            showToast(`${createdCnt}개 구조물이 일괄 등록되었습니다.`, "success");
+        }
+
+        function importPlanFromExcel() {
+            const text = document.getElementById("plan-excel-paste").value.trim();
+            if (!text) return;
+
+            const lines = text.split(/\r?\n/);
+            let addedStructs = 0;
+            let addedStations = 0;
+
+            lines.forEach((line, idx) => {
+                const cols = line.split("\t").map(c => c.trim());
+                if (cols.length < 2 || !cols[0]) return;
+
+                const structName = cols[0];
+                const stName = cols[1];
+                const rockType = cols[2] || "화강편마암";
+                const gamma = parseFloat(cols[3]) || 26.5;
+                const angle = ["0", "-45", "-90", "45", "90"].includes(cols[4]) ? cols[4] : "0";
+
+                let targetStruct = appState.structures.find(s => s.name === structName);
+                if (!targetStruct) {
+                    targetStruct = {
+                        id: "struct-" + Date.now() + "-" + idx,
+                        name: structName,
+                        rockType,
+                        defaultGamma: gamma,
+                        stations: []
+                    };
+                    appState.structures.push(targetStruct);
+                    addedStructs++;
+                }
+
+                // 기존 동일 측점명이 없는 경우에만 측점 생성 (기존 입력값 보존)
+                if (!targetStruct.stations.some(st => st.name === stName)) {
+                    targetStruct.stations.push({
+                        id: "st-" + Date.now() + "-" + idx,
+                        name: stName,
+                        rockType,
+                        unitWeight: gamma,
+                        angle,
+                        readings: [],
+                        hammerGrade: "",
+                        manualWeathering: "AUTO",
+                        note: ""
+                    });
+                    addedStations++;
+                }
+            });
+
+            document.getElementById("plan-excel-paste").value = "";
+            refreshAll();
+            renderModalStructureList();
+            showToast(`신규 구조물 ${addedStructs}개, 계획 측점 ${addedStations}개가 반영되었습니다.`, "success");
+        }
+
+        function deleteStructure(id) {
+            if (appState.structures.length <= 1) return;
+            appState.structures = appState.structures.filter(s => s.id !== id);
+            if (appState.currentStructureId === id) {
+                appState.currentStructureId = appState.structures[0].id;
+            }
+            refreshAll();
+            renderModalStructureList();
+        }
+
+        // 엑셀 야장 Ctrl+V 붙여넣기 모달
+        function openExcelPasteModal() {
+            document.getElementById("excel-paste-modal").classList.remove("hidden");
+        }
+        function closeExcelPasteModal() {
+            document.getElementById("excel-paste-modal").classList.add("hidden");
+        }
+        function processFieldExcelPaste() {
+            const text = document.getElementById("field-excel-paste").value.trim();
+            if (!text) return;
+
+            const currStruct = getCurrentStructure();
+            const lines = text.split(/\r?\n/);
+            let count = 0;
+
+            lines.forEach((line, idx) => {
+                const cols = line.split("\t").map(c => c.trim()).filter(c => c !== "");
+                if (cols.length < 2) return;
+
+                const stName = cols[0];
+                let rockType = currStruct.rockType;
+                let gamma = currStruct.defaultGamma;
+                let angle = "0";
+                let readingStartIdx = 1;
+
+                // 두 번째 열이 숫자가 아니면 암종으로 간주
+                if (isNaN(parseFloat(cols[1]))) {
+                    rockType = cols[1];
+                    readingStartIdx = 2;
+                    if (cols[2] && !isNaN(parseFloat(cols[2])) && parseFloat(cols[2]) >= 15 && parseFloat(cols[2]) <= 35) {
+                        gamma = parseFloat(cols[2]);
+                        readingStartIdx = 3;
+                    }
+                    if (cols[readingStartIdx] && ["0", "-45", "-90", "45", "90"].includes(cols[readingStartIdx])) {
+                        angle = cols[readingStartIdx];
+                        readingStartIdx++;
+                    }
+                }
+
+                const readings = cols.slice(readingStartIdx).map(v => parseFloat(v)).filter(v => !isNaN(v) && v > 0);
+                if (readings.length > 0) {
+                    // 기존 측점명이 있으면 반발경도만 업데이트, 없으면 신규 추가
+                    const existingSt = currStruct.stations.find(s => s.name === stName);
+                    if (existingSt) {
+                        existingSt.readings = readings;
+                        existingSt.rockType = rockType;
+                        existingSt.unitWeight = gamma;
+                        existingSt.angle = angle;
+                    } else {
+                        currStruct.stations.push({
+                            id: "st-" + Date.now() + "-" + idx,
+                            name: stName,
+                            rockType,
+                            unitWeight: gamma,
+                            angle,
+                            readings,
+                            hammerGrade: "",
+                            manualWeathering: "AUTO",
+                            note: ""
+                        });
+                    }
+                    count++;
+                }
+            });
+
+            document.getElementById("field-excel-paste").value = "";
+            closeExcelPasteModal();
+            refreshAll();
+            showToast(`엑셀 야장 데이터 ${count}개 측점이 반영되었습니다.`, "success");
+        }
+
+        // 추정강도 역산 자동입력 모달
+        function openReverseCalcModal() {
+            const currStruct = getCurrentStructure();
+            document.getElementById("rev-rock").value = currStruct.rockType;
+            document.getElementById("rev-gamma").value = currStruct.defaultGamma;
+            document.getElementById("reverse-calc-modal").classList.remove("hidden");
+        }
+        function closeReverseCalcModal() {
+            document.getElementById("reverse-calc-modal").classList.add("hidden");
+        }
+        function executeReverseCalc() {
+            const currStruct = getCurrentStructure();
+            const name = document.getElementById("rev-name").value.trim() || `No.${currStruct.stations.length + 1} (역산)`;
+            const targetQu = parseFloat(document.getElementById("rev-target-qu").value) || 50;
+            const rockType = document.getElementById("rev-rock").value.trim() || currStruct.rockType;
+            const gamma = parseFloat(document.getElementById("rev-gamma").value) || 26.5;
+            const angle = document.getElementById("rev-angle").value;
+
+            const { ucsPrimary, dmA, dmB, linearA, linearB } = appState.settings;
+            let reqRPrime = 35;
+
+            if (ucsPrimary === "linear") {
+                reqRPrime = (targetQu - linearB) / linearA;
+            } else {
+                // Deere-Miller 역산: R' = (log10(qu) - b) / (a * gamma)
+                reqRPrime = (Math.log10(Math.max(1, targetQu)) - dmB) / (dmA * gamma);
+            }
+            reqRPrime = Math.max(12, Math.min(75, reqRPrime));
+
+            // 타격방향 보정 ΔR 역적용: R = R' - ΔR
+            const deltaR = getAngleDeltaR(reqRPrime, angle);
+            const targetR = Math.round(reqRPrime - deltaR);
+
+            // 목표 평균 targetR을 만족하는 자연스러운 10회 측정치 세트 생성
+            const offsets = [-1, 1, 0, 2, -2, 1, 0, -1, 1, -1];
+            const readings = offsets.map(d => Math.max(10, Math.min(80, targetR + d)));
+
+            currStruct.stations.push({
+                id: "st-" + Date.now(),
+                name,
+                rockType,
+                unitWeight: gamma,
+                angle,
+                readings,
+                hammerGrade: "",
+                manualWeathering: "AUTO",
+                note: `목표강도 ${targetQu} MPa 역산 생성`
+            });
+
+            closeReverseCalcModal();
+            refreshAll();
+            showToast(`목표강도 ${targetQu} MPa에 대응하는 반발경도 세트가 생성되었습니다.`, "success");
+        }
+
+        // 측점 상세 편집 모달
+        function openStationDetailModal(stId) {
+            const st = getCurrentStructure().stations.find(s => s.id === stId);
+            if (!st) return;
+
+            document.getElementById("edit-st-id").value = st.id;
+            document.getElementById("edit-st-name").value = st.name;
+            document.getElementById("edit-st-rock").value = st.rockType;
+            document.getElementById("edit-st-gamma").value = st.unitWeight;
+            document.getElementById("edit-st-angle").value = st.angle;
+            document.getElementById("edit-st-readings").value = st.readings.join(", ");
+
+            previewEditedStation();
+            document.getElementById("station-detail-modal").classList.remove("hidden");
+        }
+
+        function previewEditedStation() {
+            const readings = document.getElementById("edit-st-readings").value
+                .split(/[\s,]+/).map(v => parseFloat(v)).filter(v => !isNaN(v));
+            const angle = document.getElementById("edit-st-angle").value;
+            const unitWeight = parseFloat(document.getElementById("edit-st-gamma").value) || 26.5;
+
+            const res = analyzeStation({ readings, angle, unitWeight });
+            const badgesEl = document.getElementById("edit-st-badges");
+            badgesEl.innerHTML = "";
+
+            res.items.forEach(item => {
+                const span = document.createElement("span");
+                span.className = item.accepted 
+                    ? "px-2 py-1 rounded text-xs font-mono font-bold bg-blue-100 text-blue-800 border border-blue-200" 
+                    : "px-2 py-1 rounded text-xs font-mono font-bold line-through bg-red-100 text-red-600 border border-red-300";
+                span.textContent = item.value;
+                badgesEl.appendChild(span);
+            });
+
+            document.getElementById("edit-st-valid-avg").textContent = `${res.validAvg.toFixed(1)} ± ${res.stdDev.toFixed(1)}`;
+            document.getElementById("edit-st-delta").textContent = `${res.deltaR >= 0 ? "+" : ""}${res.deltaR.toFixed(1)}`;
+            document.getElementById("edit-st-corr-avg").textContent = res.rPrime.toFixed(1);
+        }
+
+        function closeStationDetailModal() {
+            document.getElementById("station-detail-modal").classList.add("hidden");
+        }
+
+        function saveStationDetail() {
+            const stId = document.getElementById("edit-st-id").value;
+            const st = getCurrentStructure().stations.find(s => s.id === stId);
+            if (!st) return;
+
+            const readings = document.getElementById("edit-st-readings").value
+                .split(/[\s,]+/).map(v => parseFloat(v)).filter(v => !isNaN(v));
+
+            st.name = document.getElementById("edit-st-name").value.trim() || st.name;
+            st.rockType = document.getElementById("edit-st-rock").value.trim() || st.rockType;
+            st.unitWeight = parseFloat(document.getElementById("edit-st-gamma").value) || 26.5;
+            st.angle = document.getElementById("edit-st-angle").value;
+            st.readings = readings;
+
+            refreshAll();
+            closeStationDetailModal();
+            showToast("측점 상세 정보가 저장되었습니다.", "success");
+        }
+
+        // =========================================================================
+        // 8. 차트 시각화 (Chart.js)
+        // =========================================================================
+        function renderCharts() {
+            const currStruct = getCurrentStructure();
+            if (!currStruct) return;
+
+            const labels = [];
+            const deereData = [];
+            const linearData = [];
+            const gradeCounts = { "극경암": 0, "경암": 0, "보통암": 0, "연암": 0, "풍화암": 0 };
+
+            currStruct.stations.forEach(st => {
+                const res = analyzeStation(st);
+                labels.push(st.name);
+                deereData.push(parseFloat(res.ucsDeere.toFixed(1)));
+                linearData.push(parseFloat(res.ucsLinear.toFixed(1)));
+                if (gradeCounts[res.rockGrade] !== undefined) gradeCounts[res.rockGrade]++;
+            });
+
+            const ctx1 = document.getElementById("ucs-comparison-chart").getContext("2d");
+            if (charts.ucsComp) charts.ucsComp.destroy();
+            charts.ucsComp = new Chart(ctx1, {
+                type: "bar",
+                data: {
+                    labels,
+                    datasets: [
+                        { label: "Deere-Miller 도표식 (MPa)", data: deereData, backgroundColor: "#f59e0b", borderRadius: 4 },
+                        { label: "선형 경험식 (MPa)", data: linearData, backgroundColor: "#3b82f6", borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: "top", labels: { font: { size: 11 } } } },
+                    scales: { y: { beginAtZero: true, title: { display: true, text: "qu (MPa)", font: { size: 11 } } } }
+                }
+            });
+
+            const ctx2 = document.getElementById("grade-dist-chart").getContext("2d");
+            if (charts.gradeDist) charts.gradeDist.destroy();
+            charts.gradeDist = new Chart(ctx2, {
+                type: "doughnut",
+                data: {
+                    labels: Object.keys(gradeCounts),
+                    datasets: [{
+                        data: Object.values(gradeCounts),
+                        backgroundColor: ["#3b82f6", "#10b981", "#f59e0b", "#f97316", "#ef4444"],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: "right", labels: { font: { size: 11 } } } }
+                }
+            });
+        }
+
+        // =========================================================================
+        // 9. 통합 보고서 렌더링 및 진짜 .DOCX (OOXML) 파일 생성
+        // =========================================================================
+        function renderReport() {
+            document.getElementById("rep-title").textContent = appState.projectName;
+            document.getElementById("rep-meta").textContent = appState.projectMeta;
+
+            const quMethodNames = {
+                "deere_miller": "Deere-Miller 도표식",
+                "linear": "선형 경험식",
+                "average": "두 식 평균",
+                "conservative": "두 식 중 작은 값"
+            };
+            document.getElementById("rep-method-summary").textContent = 
+                `이상치 ±${appState.settings.outlierPct}% 제외 / ${quMethodNames[appState.settings.ucsPrimary]}`;
+
+            // 전체 차트 데이터 수집
+            const allLabels = [];
+            const allUcs = [];
+            const allGradeCounts = { "극경암": 0, "경암": 0, "보통암": 0, "연암": 0, "풍화암": 0 };
+
+            // 구조물별 섹션 생성
+            const structContainer = document.getElementById("rep-structures-container");
+            structContainer.innerHTML = "";
+
+            appState.structures.forEach((struct, sIdx) => {
+                let resultRows = "";
+                let detailRows = "";
+                let weatheringRows = "";
+
+                struct.stations.forEach(st => {
+                    const res = analyzeStation(st);
+                    allLabels.push(`${struct.name.split(" ")[0]}-${st.name.split(" ")[0]}`);
+                    allUcs.push(parseFloat(res.primaryUcs.toFixed(1)));
+                    if (allGradeCounts[res.rockGrade] !== undefined) allGradeCounts[res.rockGrade]++;
+
+                    const acceptedCnt = res.items.filter(i => i.accepted).length;
+                    const fWInfo = WEATHERING_INFO[res.finalWeathering];
+                    const hCrit = appState.hammerCriteria[st.hammerGrade];
+
+                    // 1) 측점별 암판정 결과표
+                    resultRows += `
+                        <tr>
+                            <td class="border border-slate-300 px-2 py-1.5 font-semibold">${st.name}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-center">${st.rockType} (${st.unitWeight})</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-center font-mono">${res.validAvg.toFixed(1)} ± ${res.stdDev.toFixed(1)}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-center font-mono">${res.deltaR >= 0 ? "+" : ""}${res.deltaR.toFixed(1)}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-center font-mono font-bold">${res.rPrime.toFixed(1)}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-right font-mono">${res.ucsDeere.toFixed(1)}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-right font-mono">${res.ucsLinear.toFixed(1)}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-right font-mono font-bold bg-slate-50">${res.primaryUcs.toFixed(1)}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-center font-bold">${res.rockGrade}</td>
+                        </tr>
+                    `;
+
+                    // 2) 반발경도 측정 상세 (제외 이상치 포함)
+                    const readingsFormatted = res.items.map(item => 
+                        item.accepted 
+                            ? `<span class="text-slate-900">${item.value}</span>` 
+                            : `<span class="text-red-600 font-bold line-through">${item.value}</span>`
+                    ).join(", ");
+
+                    detailRows += `
+                        <tr>
+                            <td class="border border-slate-300 px-2 py-1.5 font-medium">${st.name}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 font-mono text-[11px]">[${readingsFormatted || "미측정"}]</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-center font-mono">${acceptedCnt}/${res.items.length}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-center font-mono">${res.rawAvg.toFixed(1)} → ${res.validAvg.toFixed(1)}</td>
+                        </tr>
+                    `;
+
+                    // 3) 종합 풍화도 판정표
+                    weatheringRows += `
+                        <tr>
+                            <td class="border border-slate-300 px-2 py-1.5 font-semibold">${st.name}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-center">${res.rockGrade} (${res.schmidtWeathering})</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-center">${hCrit ? `${st.hammerGrade} (${hCrit.title} / ${hCrit.weathering})` : "미실시"}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-slate-600">${st.note || "-"}</td>
+                            <td class="border border-slate-300 px-2 py-1.5 text-center font-bold bg-amber-50/40">${fWInfo.name}${res.isManualWeathering ? " [수동]" : ""}</td>
+                        </tr>
+                    `;
+                });
+
+                const secEl = document.createElement("section");
+                secEl.className = `space-y-4 ${sIdx > 0 ? "page-break pt-4" : ""}`;
+                secEl.innerHTML = `
+                    <div class="bg-slate-100 px-4 py-2.5 rounded-lg border-l-4 border-slate-800 flex justify-between items-center">
+                        <h2 class="text-base font-bold text-slate-900">3.${sIdx + 1} 구조물별 분석 결과: ${struct.name}</h2>
+                        <span class="text-xs text-slate-600">대표암종: ${struct.rockType} (γ=${struct.defaultGamma} kN/m³)</span>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-700 mb-1.5">가. 측점별 일축압축강도 추정 및 암판정 결과표</h3>
+                        <table class="w-full text-xs border-collapse border border-slate-300">
+                            <thead class="bg-slate-50 text-slate-800 font-bold">
+                                <tr>
+                                    <th class="border border-slate-300 px-2 py-1.5">측점/위치</th>
+                                    <th class="border border-slate-300 px-2 py-1.5">암종 (γ)</th>
+                                    <th class="border border-slate-300 px-2 py-1.5">유효 R ± σ</th>
+                                    <th class="border border-slate-300 px-2 py-1.5">보정 ΔR</th>
+                                    <th class="border border-slate-300 px-2 py-1.5">보정 R′</th>
+                                    <th class="border border-slate-300 px-2 py-1.5">도표식 q<sub>u</sub></th>
+                                    <th class="border border-slate-300 px-2 py-1.5">경험식 q<sub>u</sub></th>
+                                    <th class="border border-slate-300 px-2 py-1.5 bg-slate-100">대표 q<sub>u</sub> (MPa)</th>
+                                    <th class="border border-slate-300 px-2 py-1.5">암판정 등급</th>
+                                </tr>
+                            </thead>
+                            <tbody>${resultRows || `<tr><td colspan="9" class="border border-slate-300 p-3 text-center text-slate-400">등록된 측점 없음</td></tr>`}</tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-700 mb-1.5">나. 반발경도 측정 상세 내역 (적색 취소선은 평균 ±${appState.settings.outlierPct}% 초과 제외 이상치)</h3>
+                        <table class="w-full text-xs border-collapse border border-slate-300">
+                            <thead class="bg-slate-50 text-slate-800 font-bold">
+                                <tr>
+                                    <th class="border border-slate-300 px-2 py-1.5 w-36">측점/위치</th>
+                                    <th class="border border-slate-300 px-2 py-1.5">측정 반발경도 목록 (원시치 및 제외 이상치)</th>
+                                    <th class="border border-slate-300 px-2 py-1.5 w-20">유효수</th>
+                                    <th class="border border-slate-300 px-2 py-1.5 w-32">원시평균 → 유효평균</th>
+                                </tr>
+                            </thead>
+                            <tbody>${detailRows || `<tr><td colspan="4" class="border border-slate-300 p-3 text-center text-slate-400">데이터 없음</td></tr>`}</tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-700 mb-1.5">다. 지질망치 타격시험 연계 및 종합 풍화도 판정표</h3>
+                        <table class="w-full text-xs border-collapse border border-slate-300">
+                            <thead class="bg-slate-50 text-slate-800 font-bold">
+                                <tr>
+                                    <th class="border border-slate-300 px-2 py-1.5 w-36">측점/위치</th>
+                                    <th class="border border-slate-300 px-2 py-1.5 w-32">슈미트 암판정(풍화도)</th>
+                                    <th class="border border-slate-300 px-2 py-1.5 w-40">지질망치 등급 (ISRM)</th>
+                                    <th class="border border-slate-300 px-2 py-1.5">현장 육안·타격 소견</th>
+                                    <th class="border border-slate-300 px-2 py-1.5 w-32">최종 종합 풍화도</th>
+                                </tr>
+                            </thead>
+                            <tbody>${weatheringRows || `<tr><td colspan="5" class="border border-slate-300 p-3 text-center text-slate-400">데이터 없음</td></tr>`}</tbody>
+                        </table>
+                    </div>
+                `;
+                structContainer.appendChild(secEl);
+            });
+
+            // 부록 기준표 렌더링
+            let critHtml = `
+                <h3 class="text-xs font-bold text-slate-700 mb-1.5">1) 일축압축강도(q<sub>u</sub>) 5등급 암판정 및 강도 풍화도 기준표</h3>
+                <table class="w-full text-xs border-collapse border border-slate-300">
+                    <thead class="bg-slate-100 text-slate-800 font-bold">
+                        <tr>
+                            <th class="border border-slate-300 px-2.5 py-1.5">암반 등급</th>
+                            <th class="border border-slate-300 px-2.5 py-1.5">일축압축강도 q<sub>u</sub> 구간</th>
+                            <th class="border border-slate-300 px-2.5 py-1.5">대응 풍화도</th>
+                            <th class="border border-slate-300 px-2.5 py-1.5">등급 설명 및 공학적 특성</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            appState.criteria.forEach((c, i) => {
+                const rangeStr = i === 0 ? `${c.minUcs} MPa 이상` : `${c.minUcs} ~ ${appState.criteria[i-1].minUcs} MPa 미만`;
+                critHtml += `
+                    <tr>
+                        <td class="border border-slate-300 px-2.5 py-1 text-center font-bold">${c.name}</td>
+                        <td class="border border-slate-300 px-2.5 py-1 text-center font-mono">${rangeStr}</td>
+                        <td class="border border-slate-300 px-2.5 py-1 text-center font-semibold">${WEATHERING_INFO[c.weathering].name}</td>
+                        <td class="border border-slate-300 px-2.5 py-1">${c.desc}</td>
+                    </tr>
+                `;
+            });
+            critHtml += `</tbody></table>`;
+            document.getElementById("rep-appendix-criteria").innerHTML = critHtml;
+
+            let hamHtml = `
+                <h3 class="text-xs font-bold text-slate-700 mb-1.5">2) 지질망치 현장 강도등급(ISRM 1981, R0~R6) 대응 풍화도 기준표</h3>
+                <table class="w-full text-xs border-collapse border border-slate-300">
+                    <thead class="bg-slate-100 text-slate-800 font-bold">
+                        <tr>
+                            <th class="border border-slate-300 px-2.5 py-1.5">등급</th>
+                            <th class="border border-slate-300 px-2.5 py-1.5">현장 강도 구분</th>
+                            <th class="border border-slate-300 px-2.5 py-1.5">참고 강도범위</th>
+                            <th class="border border-slate-300 px-2.5 py-1.5">대응 풍화도</th>
+                            <th class="border border-slate-300 px-2.5 py-1.5">지질망치 타격 반응 설명</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            Object.entries(appState.hammerCriteria).forEach(([code, info]) => {
+                hamHtml += `
+                    <tr>
+                        <td class="border border-slate-300 px-2.5 py-1 text-center font-mono font-bold">${code}</td>
+                        <td class="border border-slate-300 px-2.5 py-1 text-center font-semibold">${info.title}</td>
+                        <td class="border border-slate-300 px-2.5 py-1 text-center font-mono">${info.range}</td>
+                        <td class="border border-slate-300 px-2.5 py-1 text-center font-semibold">${WEATHERING_INFO[info.weathering].name}</td>
+                        <td class="border border-slate-300 px-2.5 py-1">${info.desc}</td>
+                    </tr>
+                `;
+            });
+            hamHtml += `</tbody></table>`;
+            document.getElementById("rep-appendix-hammer").innerHTML = hamHtml;
+
+            // 보고서 차트 렌더링
+            const ctxRep1 = document.getElementById("rep-ucs-chart").getContext("2d");
+            if (charts.repUcs) charts.repUcs.destroy();
+            charts.repUcs = new Chart(ctxRep1, {
+                type: "bar",
+                data: {
+                    labels: allLabels,
+                    datasets: [{ label: "대표 qu (MPa)", data: allUcs, backgroundColor: "#d97706", borderRadius: 3 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, title: { display: true, text: "MPa", font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } }
+                }
+            });
+
+            const ctxRep2 = document.getElementById("rep-weathering-chart").getContext("2d");
+            if (charts.repWeathering) charts.repWeathering.destroy();
+            charts.repWeathering = new Chart(ctxRep2, {
+                type: "pie",
+                data: {
+                    labels: Object.keys(allGradeCounts),
+                    datasets: [{
+                        data: Object.values(allGradeCounts),
+                        backgroundColor: ["#2563eb", "#059669", "#d97706", "#ea580c", "#dc2626"]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: { legend: { position: "right", labels: { font: { size: 10 } } } }
+                }
+            });
+        }
+
+        /**
+         * 한글(HWP) 및 MS Word에서 완벽하게 열리는 정식 OOXML(.docx) 파일 생성기 (JSZip 기반)
+         */
+        async function exportToDocx() {
+            renderReport();
+            try {
+                const zip = new JSZip();
+
+                // XML 이스케이프 유틸
+                const esc = (str) => String(str || "")
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;");
+
+                // 단락 생성 헬퍼
+                const pXml = (text, bold = false, sizePt = 10, bgHex = null) => {
+                    const sz = sizePt * 2;
+                    const shd = bgHex ? `<w:shd w:val="clear" w:color="auto" w:fill="${bgHex}"/>` : "";
+                    return `
+                        <w:p>
+                            <w:pPr>${shd}<w:spacing w:after="100"/></w:pPr>
+                            <w:r>
+                                <w:rPr>
+                                    <w:rFonts w:ascii="Malgun Gothic" w:eastAsia="Malgun Gothic" w:hAnsi="Malgun Gothic"/>
+                                    ${bold ? "<w:b/>" : ""}
+                                    <w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>
+                                </w:rPr>
+                                <w:t xml:space="preserve">${esc(text)}</w:t>
+                            </w:r>
+                        </w:p>`;
+                };
+
+                // 표 생성 헬퍼
+                const tblXml = (headers, rows) => {
+                    const headerCells = headers.map(h => `
+                        <w:tc>
+                            <w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="F1F5F9"/></w:tcPr>
+                            <w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="40"/></w:pPr>
+                                <w:r><w:rPr><w:rFonts w:ascii="Malgun Gothic" w:eastAsia="Malgun Gothic"/><w:b/><w:sz w:val="17"/></w:rPr><w:t>${esc(h)}</w:t></w:r>
+                            </w:p>
+                        </w:tc>`).join("");
+
+                    const bodyRows = rows.map(row => {
+                        const cells = row.map(cell => `
+                            <w:tc>
+                                <w:p><w:pPr><w:spacing w:after="40"/></w:pPr>
+                                    <w:r><w:rPr><w:rFonts w:ascii="Malgun Gothic" w:eastAsia="Malgun Gothic"/><w:sz w:val="17"/></w:rPr><w:t>${esc(cell)}</w:t></w:r>
+                                </w:p>
+                            </w:tc>`).join("");
+                        return `<w:tr>${cells}</w:tr>`;
+                    }).join("");
+
+                    return `
+                        <w:tbl>
+                            <w:tblPr>
+                                <w:tblW w:w="5000" w:type="pct"/>
+                                <w:tblBorders>
+                                    <w:top w:val="single" w:sz="6" w:color="64748B"/>
+                                    <w:bottom w:val="single" w:sz="6" w:color="64748B"/>
+                                    <w:left w:val="single" w:sz="6" w:color="64748B"/>
+                                    <w:right w:val="single" w:sz="6" w:color="64748B"/>
+                                    <w:insideH w:val="single" w:sz="4" w:color="94A3B8"/>
+                                    <w:insideV w:val="single" w:sz="4" w:color="94A3B8"/>
+                                </w:tblBorders>
+                            </w:tblPr>
+                            <w:tr>${headerCells}</w:tr>
+                            ${bodyRows}
+                        </w:tbl>
+                        ${pXml("", false, 6)}`;
+                };
+
+                // 본문 XML 조립
+                let bodyContent = "";
+                bodyContent += pXml(appState.projectName, true, 16);
+                bodyContent += pXml(`슈미트해머(N형) 반발경도 시험 및 지질망치 타격시험(ISRM) 암반판정·풍화도 평가 보고서 (${appState.projectMeta})`, false, 10);
+                bodyContent += pXml("1. 시험 개요 및 판정 방법", true, 12, "F8FAFC");
+                bodyContent += pXml(document.getElementById("rep-overview-text").innerText.trim(), false, 10);
+
+                appState.structures.forEach((struct, sIdx) => {
+                    if (sIdx > 0) {
+                        bodyContent += `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+                    }
+                    bodyContent += pXml(`2.${sIdx + 1} 구조물별 분석 결과: ${struct.name} (대표암종: ${struct.rockType})`, true, 12, "E2E8F0");
+
+                    const resHeaders = ["측점/위치", "암종(γ)", "유효R±σ", "보정ΔR", "보정R′", "도표식qu", "경험식qu", "대표qu(MPa)", "암판정"];
+                    const detHeaders = ["측점/위치", "측정 반발경도 (괄호안은 이상치 제외)", "유효수", "원시→유효평균"];
+                    const weaHeaders = ["측점/위치", "슈미트판정", "지질망치(ISRM)", "현장 소견", "최종 종합 풍화도"];
+
+                    const resRows = [];
+                    const detRows = [];
+                    const weaRows = [];
+
+                    struct.stations.forEach(st => {
+                        const res = analyzeStation(st);
+                        const acceptedCnt = res.items.filter(i => i.accepted).length;
+                        const hCrit = appState.hammerCriteria[st.hammerGrade];
+
+                        resRows.push([
+                            st.name, `${st.rockType}(${st.unitWeight})`,
+                            `${res.validAvg.toFixed(1)}±${res.stdDev.toFixed(1)}`,
+                            `${res.deltaR >= 0 ? "+" : ""}${res.deltaR.toFixed(1)}`,
+                            res.rPrime.toFixed(1), res.ucsDeere.toFixed(1), res.ucsLinear.toFixed(1),
+                            res.primaryUcs.toFixed(1), res.rockGrade
+                        ]);
+
+                        const rListStr = res.items.map(i => i.accepted ? `${i.value}` : `(${i.value}:제외)`).join(", ");
+                        detRows.push([
+                            st.name, rListStr, `${acceptedCnt}/${res.items.length}`, `${res.rawAvg.toFixed(1)} → ${res.validAvg.toFixed(1)}`
+                        ]);
+
+                        weaRows.push([
+                            st.name, `${res.rockGrade}(${res.schmidtWeathering})`,
+                            hCrit ? `${st.hammerGrade}(${hCrit.weathering})` : "미실시",
+                            st.note || "-", WEATHERING_INFO[res.finalWeathering].name
+                        ]);
+                    });
+
+                    bodyContent += pXml("가. 측점별 일축압축강도 추정 및 암판정 결과표", true, 10);
+                    bodyContent += tblXml(resHeaders, resRows);
+                    bodyContent += pXml(`나. 반발경도 측정 상세 내역 (평균 ±${appState.settings.outlierPct}% 초과 이상치 표기)`, true, 10);
+                    bodyContent += tblXml(detHeaders, detRows);
+                    bodyContent += pXml("다. 지질망치 타격시험 연계 및 종합 풍화도 판정표", true, 10);
+                    bodyContent += tblXml(weaHeaders, weaRows);
+                });
+
+                // 부록 기준표 추가
+                bodyContent += `<w:p><w:r><w:br w:type="page"/></w:r></w:p>`;
+                bodyContent += pXml("[부록] 적용 암반판정 및 지질망치 풍화도 분류 기준표", true, 12, "F1F5F9");
+                const critRows = appState.criteria.map((c, i) => [
+                    c.name,
+                    i === 0 ? `${c.minUcs} MPa 이상` : `${c.minUcs} ~ ${appState.criteria[i-1].minUcs} MPa 미만`,
+                    WEATHERING_INFO[c.weathering].name,
+                    c.desc
+                ]);
+                bodyContent += tblXml(["암반 등급", "일축압축강도 구간", "대응 풍화도", "등급 설명"], critRows);
+
+                const hamRows = Object.entries(appState.hammerCriteria).map(([code, info]) => [
+                    code, info.title, info.range, WEATHERING_INFO[info.weathering].name, info.desc
+                ]);
+                bodyContent += tblXml(["등급", "강도 구분", "참고 강도범위", "대응 풍화도", "지질망치 타격 반응 설명"], hamRows);
+
+                // OOXML 필수 패키지 파일 구성
+                zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`);
+
+                zip.folder("_rels").file(".rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`);
+
+                zip.folder("word").file("document.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${bodyContent}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`);
+
+                const blob = await zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                const safeName = appState.projectName.replace(/[^a-zA-Z0-9가-힣_-]/g, "_");
+                link.href = url;
+                link.download = `${safeName}_암반판정보고서.docx`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                showToast("한글·워드 편집용 정식 .docx 보고서가 저장되었습니다.", "success");
+            } catch (err) {
+                showToast("DOCX 생성 중 오류: " + err.message, "error");
+            }
+        }
+
+        // 초기 실행
+        window.onload = function() {
+            loadSampleData();
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
